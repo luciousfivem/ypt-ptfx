@@ -13,6 +13,12 @@ stated. Nothing here was run inside GTA V or FiveM, because that cannot be done 
 | UI end-to-end (Playwright, Chromium, WebGL via SwiftShader) | 17 | boot, presets, undo, import (real WebM), content-sniffing rejection, drag & drop, GLB import, persistence, crash recovery, export ZIP, shortcuts |
 | Typecheck | all 7 TS projects + `cargo clippy` clean | |
 
+**Windows (GitHub `windows-latest`, commit 42b61f3):** installer job green (NSIS + MSI + portable exe); typecheck
+green; native Rust suite green with real FFmpeg (including the process-tree-kill tests, so `taskkill /T` is exercised);
+Tauri IPC tests 10/10; vitest 278 passed / 59 skipped (the skips are the Lua scenarios and the CodeWalker-bridge
+tests — neither Lua nor the bridge is installed on that runner). Getting there found and fixed several problems that
+only a fresh Windows checkout shows (details in [`DEVELOPMENT.md`](DEVELOPMENT.md#windows-ci-githubworkflowswindows-buildyml)).
+
 Commands: see [`DEVELOPMENT.md`](DEVELOPMENT.md).
 
 ## Verified (with real tools)
@@ -37,7 +43,7 @@ Commands: see [`DEVELOPMENT.md`](DEVELOPMENT.md).
 | **Effects rendering in GTA V / FiveM** | **Unverified.** Several engine-level values are inferred from CodeWalker field names (shader/render-state names, blend-set enums, key-frame semantics, units) and are labelled `inferred`/`unverified` in the fidelity report. Use the donor-template strategy and [`FIVEM_TEST_CHECKLIST.md`](FIVEM_TEST_CHECKLIST.md) |
 | **Flipbook frame → UV mapping in the engine** | **Unverifiable offline.** The brief names `ptxclipregions.dat`; CodeWalker has no reference to it, so its format cannot be read, written or checked here. VFXForge writes frame ids and animate-texture settings and reports *structural* validity only (`engineVerified` is always `false`) |
 | Legacy vs Enhanced in-game | The Enhanced (gen9) binary is produced and read back by CodeWalker; how the Enhanced game consumes it is untested |
-| Windows | The Windows installer targets (NSIS/MSI) are configured but **not built** here (Linux container); the Windows branch of process-tree kill (`taskkill /T`) is written but only the Unix path is tested; WebView2 not exercised (Chromium is the closest tested engine) |
+| Windows app in use | The NSIS/MSI installers **build** on a GitHub `windows-latest` runner and the Windows test run is green (below), but **nobody has installed or launched the Windows build yet**: the UI has never been driven on WebView2 (Chromium and WebKitGTK are the engines actually exercised), and installing/uninstalling, the SmartScreen prompt for an unsigned installer, and file dialogs on Windows are untested. The Windows test run has no CodeWalker bridge and no Lua, so the binary-`.ypt` path and the Lua scenarios were only run on Linux |
 | macOS | Not built or tested |
 | Preview fidelity/performance | The WebGL preview is an approximation (additive/alpha blending, bloom, billboards) and not GTA V's renderer. Frame rates were only measured with **software** GL (≈10–35 fps at reduced resolution); real GPUs should be much faster but this was not measured |
 | Linux WebKitGTK rendering | One software-GL screenshot showed a stray dark shape in the viewport that Chromium did not; believed to be a llvmpipe/bloom artefact, not investigated further |
@@ -71,5 +77,5 @@ Commands: see [`DEVELOPMENT.md`](DEVELOPMENT.md).
 | Validated `.ypt.xml` + binary `.ypt` with round-trip + FiveM resource/ZIP/Lua | ✔ (binary needs the CodeWalker bridge) |
 | Multi-effect, before/after, cost estimates, undo/redo, autosave/recovery, project bundles, drag & drop, preset sharing, shortcuts, light/dark | ✔ |
 | Workers, cancellable jobs, security hardening, atomic saves | ✔ |
-| Windows installer | configured, **not built here** |
+| Windows installer | ✔ built by CI (unsigned; not yet installed/launched by anyone — see “Not verified”) |
 | “The exported effect loads and displays inside the game” | **Not demonstrated** — requires your in-game test |

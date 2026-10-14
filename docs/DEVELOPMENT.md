@@ -70,6 +70,28 @@ To ship them, place them in `apps/desktop/src-tauri/bin/` and add `bundle.resour
 Windows signing, notarisation and auto-update are intentionally not configured here (they need your certificates
 and update server).
 
+## Windows CI (`.github/workflows/windows-build.yml`)
+
+Runs on GitHub's `windows-latest` on every push to the development branch and on demand (Actions → *Windows build* →
+*Run workflow*). Two jobs:
+
+* **Installer** — `tauri build --bundles nsis,msi`; uploads the `VFXForge-windows-installer` artifact (NSIS setup,
+  MSI, and `VFXForge-portable.exe`, the bare executable).
+* **Tests** (non-blocking, reported separately) — FFmpeg via Chocolatey, `pnpm typecheck`, `cargo test` for the
+  native crate (real FFmpeg) and the Tauri IPC tests, then `pnpm test`.
+
+Windows-specific things this exposed and that are now handled:
+
+* A bare `bin/` in `.gitignore` also hid `native/vfxforge-native/src/bin/` (the CLI source), so fresh clones did not
+  build. The rule is now limited to build-output folders.
+* Test fixtures must not use Unix-style absolute paths (`/tmp/x` has no drive letter, so it is *relative* on
+  Windows). Use `std::env::temp_dir()` / `tempfile`.
+* The Tauri mock-runtime tests must send requests from the webview's own origin (`http://tauri.localhost` on
+  Windows, `tauri://localhost` elsewhere), otherwise the ACL treats them as a remote page and rejects every command.
+* The Tauri unit-test executable needs a Common Controls v6 manifest to start; CI passes one through `RUSTFLAGS`
+  (`apps/desktop/src-tauri/windows-test.manifest`). It must **not** go in `build.rs`: `rustc-link-arg-tests` is
+  rejected for a package without an integration-test target and breaks the app build.
+
 ## Security notes
 
 * Imported media/models/projects/bundles/preset packages are **untrusted**: validated by content, size-limited,
