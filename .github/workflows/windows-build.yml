@@ -82,9 +82,13 @@ jobs:
       - name: Rust tests (native crate, incl. real FFmpeg integration)
         run: cargo test -p vfxforge-native --no-fail-fast
 
+      # The test executable needs a Common Controls v6 manifest (see windows-test.manifest). It is applied
+      # through RUSTFLAGS for this step only, so the shipped app's link step is untouched.
       - name: Rust tests (Tauri command table over the mock-runtime IPC)
         if: ${{ !cancelled() }}
-        run: cargo test -p vfxforge-desktop --no-fail-fast
+        env:
+          RUSTFLAGS: -C link-arg=/MANIFEST:EMBED -C link-arg=/MANIFESTINPUT:${{ github.workspace }}\apps\desktop\src-tauri\windows-test.manifest
+        run: cargo test -p vfxforge-desktop --lib --no-fail-fast
 
       - name: Build the CLI used by the TypeScript integration tests
         if: ${{ !cancelled() }}
