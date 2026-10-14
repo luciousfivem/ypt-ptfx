@@ -641,3 +641,21 @@ describe('DDS', () => {
     expect(validateDds(encodeDds(bled, { format: 'BC3', mipmaps: true })).valid).toBe(true);
   });
 });
+
+describe('processClip base frames', () => {
+  it('exposes natural-order frames independent of the explicit list, reverse and ping-pong', () => {
+    const mk = (v: number): RgbaImage => {
+      const img = createImage(2, 2);
+      for (let i = 0; i < 4; i++) img.data.set([v, v, v, 255], i * 4);
+      return img;
+    };
+    const raw = [mk(10), mk(20), mk(30)];
+    const clip = createClip('c', null);
+    clip.frames = [{ src: 2, hold: 1 }, { src: 0, hold: 2 }];
+    clip.playback.reverse = true;
+    const out = processClip(raw, clip);
+    expect(out.base.map((f) => f.data[0])).toEqual([10, 20, 30]);
+    expect(out.frames.map((f) => f.data[0])).toEqual([10, 30]); // reversed list
+    expect(out.durations).toEqual([2, 1]);
+  });
+});

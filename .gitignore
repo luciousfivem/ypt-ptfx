@@ -16,3 +16,6 @@ tools/ypt-bridge/out/
 .codewalker/
 tools/ypt-bridge/out/
 tools/ypt-bridge/obj/
+apps/desktop/dist/
+apps/desktop/test-results/
+apps/desktop/playwright-report/

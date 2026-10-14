@@ -22,9 +22,11 @@ export const DEG2RAD = Math.PI / 180;
 export const RAD2DEG = 180 / Math.PI;
 
 /**
- * Rotates `v` by XYZ Euler angles in degrees (applied X, then Y, then Z — the same
- * order three.js uses for `Euler('XYZ')` when composing intrinsic rotations as
- * R = Rz * Ry * Rx applied to column vectors).
+ * Rotates `v` by Euler angles in degrees: first about X, then about Y, then about Z (all about the
+ * fixed axes), i.e. R = Rz·Ry·Rx applied to a column vector. In three.js terms that is
+ * `new Euler(x, y, z, 'ZYX')` — NOT three's default 'XYZ' order — so any three.js object that must
+ * follow this convention has to set `rotation.order = 'ZYX'` (the desktop viewport does, and
+ * apps/desktop/test/euler.test.ts pins the equivalence).
  */
 export function rotateEulerXYZ(v: Vec3, eulerDeg: Vec3): Vec3 {
   const [rx, ry, rz] = [eulerDeg[0] * DEG2RAD, eulerDeg[1] * DEG2RAD, eulerDeg[2] * DEG2RAD];

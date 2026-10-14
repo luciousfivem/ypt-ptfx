@@ -14,17 +14,8 @@
  * only the converter is missing the caller may opt into a clearly-labelled source-only package.
  * A file is never reported as exported merely because it was written.
  */
-import type { Clip, Project, Sheet } from '@vfxforge/core';
-import {
-  bleedTransparentColor,
-  buildAtlas,
-  encodeDds,
-  encodePng,
-  expandHolds,
-  mipLevelCount,
-  processClip,
-  type RgbaImage,
-} from '@vfxforge/media';
+import type { Clip, Project } from '@vfxforge/core';
+import { encodeDds, encodePng, type RgbaImage } from '@vfxforge/media';
 import {
   applyDonorPlan,
   buildYptModel,
@@ -46,6 +37,7 @@ import {
 } from '@vfxforge/ypt';
 import { DEFAULT_RESOURCE_OPTIONS, packageResource, type ResourceOptions } from '@vfxforge/fivem';
 import { estimateProject, textureBytes, type Estimate, type SheetCost } from './estimate';
+import { renderSheet } from './sheet';
 
 /** Supplies raw frames for a clip (FFmpeg on desktop, <video> in the browser, a fixture in tests). */
 export interface FrameSource {
@@ -179,14 +171,10 @@ export async function runExport(project: Project, frames: FrameSource, convert: 
       }
       check(opts.signal);
       stage('sheets', sheet.name);
-      const processed = processClip(raw, clip);
+      const { processed, atlas, image: bled, mips } = renderSheet(raw, clip, sheet);
       for (const n of processed.notes) issues.push(info('clip-note', n, sheet.name));
-      const expanded = expandHolds(processed.frames, processed.durations);
-      const atlas = buildAtlas(expanded, atlasParams(sheet));
       for (const w of atlas.warnings) issues.push(warn('atlas-warning', w, sheet.name));
-      const bled = bleedTransparentColor(atlas.image);
       const dds = encodeDds(bled, sheet.dds);
-      const mips = sheet.dds.mipmaps ? mipLevelCount(sheet.texture.width, sheet.texture.height) : 1;
       const ddsFileName = `${sheet.textureName}.dds`;
 
       stage('flipbook', sheet.name);
@@ -338,20 +326,6 @@ export async function runExport(project: Project, frames: FrameSource, convert: 
     zip: packaged.zip,
     files: packaged.files,
     bindings,
-  };
-}
-
-function atlasParams(sheet: Sheet) {
-  return {
-    grid: sheet.grid,
-    texture: sheet.texture,
-    order: sheet.order,
-    padding: sheet.padding,
-    extrude: sheet.extrude,
-    fit: sheet.fit,
-    trim: sheet.trim,
-    center: sheet.center,
-    range: sheet.range,
   };
 }
 

@@ -21,6 +21,11 @@ import { applyKey } from './keying';
 import { generateProcedural } from './procedural';
 
 export interface ProcessedClip {
+  /**
+   * The processed frames in natural order, BEFORE the explicit frame list, reverse and ping-pong
+   * are applied. `Clip.frames[].src` indexes into this array. (Same objects as `frames` uses, not copies.)
+   */
+  base: RgbaImage[];
   frames: RgbaImage[];
   /** Relative display time per frame (1 = one frame period). Same length as `frames`. */
   durations: number[];
@@ -99,38 +104,13 @@ export function processClip(raw: RgbaImage[], clip: Clip, hooks: PipelineHooks =
     }
   }
 
-  let durations: number[];
-  if (clip.frames) {
-    const picked: RgbaImage[] = [];
-    durations = [];
-    for (const entry of clip.frames) {
-      const src = frames[entry.src];
-      if (!src) {
-        notes.push(`Frame list references missing frame ${entry.src}; skipped.`);
-        continue;
-      }
-      picked.push(src);
-      durations.push(entry.hold);
-    }
-    if (picked.length === 0) throw new Error('The explicit frame list selects no valid frames.');
-    frames = picked;
-  } else {
-    durations = frames.map(() => 1);
-  }
+  const base = frames;
+  const arranged = arrangeSequence(frames, clip.frames, clip.playback);
+  notes.push(...arranged.notes);
+  frames = arranged.items;
+  const durations = arranged.durations;
 
-  if (clip.playback.reverse) {
-    frames = [...frames].reverse();
-    durations = [...durations].reverse();
-  }
-  if (clip.playback.pingPong && frames.length > 2) {
-    // forward then backward without repeating the two end frames, so the loop has no stutter
-    const back = frames.slice(1, -1).reverse();
-    const backD = durations.slice(1, -1).reverse();
-    frames = [...frames, ...back];
-    durations = [...durations, ...backD];
-  }
-
-  return { frames, durations, fps: clip.extract.fps * clip.playback.speed, loop: clip.playback.loop, cropRect, notes };
+  return { base, frames, durations, fps: clip.extract.fps * clip.playback.speed, loop: clip.playback.loop, cropRect, notes };
 }
 
 /**
@@ -144,4 +124,50 @@ export function expandHolds(frames: RgbaImage[], durations: number[]): RgbaImage
     for (let r = 0; r < reps; r++) out.push(f);
   });
   return out;
+}
+
+/**
+ * Stages 6-7 of the pipeline, generic over what is being arranged so the UI can reuse the exact
+ * same logic on frame INDICES (to show which source frame each output frame comes from).
+ *
+ *  - an explicit list picks/duplicates/reorders items and gives each a hold time,
+ *  - reverse flips the result,
+ *  - ping-pong appends the way back without repeating the two end items, so the loop does not stutter.
+ */
+export function arrangeSequence<T>(
+  items: T[],
+  list: Array<{ src: number; hold: number }> | null,
+  playback: { reverse: boolean; pingPong: boolean },
+): { items: T[]; durations: number[]; notes: string[] } {
+  const notes: string[] = [];
+  let out: T[];
+  let durations: number[];
+  if (list) {
+    out = [];
+    durations = [];
+    for (const entry of list) {
+      const item = items[entry.src];
+      if (item === undefined) {
+        notes.push(`Frame list references missing frame ${entry.src}; skipped.`);
+        continue;
+      }
+      out.push(item);
+      durations.push(entry.hold);
+    }
+    if (out.length === 0) throw new Error('The explicit frame list selects no valid frames.');
+  } else {
+    out = [...items];
+    durations = items.map(() => 1);
+  }
+  if (playback.reverse) {
+    out = [...out].reverse();
+    durations = [...durations].reverse();
+  }
+  if (playback.pingPong && out.length > 2) {
+    const back = out.slice(1, -1).reverse();
+    const backD = durations.slice(1, -1).reverse();
+    out = [...out, ...back];
+    durations = [...durations, ...backD];
+  }
+  return { items: out, durations, notes };
 }

@@ -125,7 +125,7 @@ const P = (
 ): Preset => ({ id, name, category, description, tags: [kind, category.toLowerCase(), ...tags], generator: { kind, palette, intensity }, tune: style(st), triggers });
 
 const aura = (over: Style = {}): Style => ({ rate: 10, life: [0.9, 1.4], size: [0.25, 0.4], speed: [0.02, 0.1], spread: 180, drag: 1, glow: 1.4, fade: [0.25, 0.6], ...over });
-const risingFlame = (over: Style = {}): Style => ({ rate: 28, life: [0.45, 0.8], size: [0.14, 0.24], speed: [0.35, 0.9], spread: 10, gravity: -0.12, turbulence: 0.6, glow: 1.3, ...over });
+const risingFlame = (over: Style = {}): Style => ({ rotation: [-8, 8], spin: [-6, 6], rate: 28, life: [0.45, 0.8], size: [0.14, 0.24], speed: [0.35, 0.9], spread: 10, gravity: -0.12, turbulence: 0.6, glow: 1.3, ...over });
 const muzzleBurst = (over: Style = {}): Style => ({ mode: 'burst', burst: 3, life: [0.18, 0.32], size: [0.16, 0.26], speed: [0.4, 1.4], dir: 'forward', spread: 10, drag: 2, glow: 1.6, fade: [0.08, 0.5], duration: 0.4, loop: false, ...over });
 const driftSmoke = (over: Style = {}): Style => ({ rate: 14, life: [1.0, 1.7], size: [0.22, 0.4], speed: [0.15, 0.4], spread: 20, gravity: -0.05, drag: 0.9, blend: 'alpha', grow: 1.2, fade: [0.2, 0.55], ...over });
 

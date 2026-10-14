@@ -16,7 +16,10 @@ import { IDENTITY_FRAME, ParticleSim, type EmitterFrame } from './sim';
 export interface RuntimeInstance {
   id: number;
   effectId: string;
+  /** The emitter as simulated (a one-shot start has its `loop` flag cleared). */
   emitter: Emitter;
+  /** The emitter object from the project this instance was started from (identity = "unchanged"). */
+  source: Emitter;
   sim: ParticleSim;
   looped: boolean;
 }
@@ -27,6 +30,8 @@ export interface RuntimeOptions {
   /** Minimum time between one-shot starts of the same emitter (mirrors Config minIntervalMs). */
   minIntervalMs?: number;
 }
+
+const STATE_EVENTS: TriggerEvent[] = ['switched', 'equipped', 'idle'];
 
 export class RuntimeSimulator {
   instances: RuntimeInstance[] = [];
@@ -43,9 +48,51 @@ export class RuntimeSimulator {
     this.minInterval = opts.minIntervalMs ?? 50;
   }
 
-  /** Swap in an edited project without losing running instances' timing. */
-  setProject(project: Project): void {
+  /**
+   * Swap in an edited project while effects are running. Instances whose emitter did not change
+   * are untouched; a changed emitter is re-simulated from t=0 up to the instance's current time
+   * (the simulation is deterministic), so dragging a slider updates the live effect smoothly
+   * instead of waiting for it to restart. Removed or disabled emitters stop immediately.
+   */
+  setProject(project: Project, frameFor: (attachmentId: string | null) => EmitterFrame = () => IDENTITY_FRAME): void {
+    const prev = this.project;
     this.project = project;
+    const next: RuntimeInstance[] = [];
+    for (const inst of this.instances) {
+      const em = findEmitter(project, inst.effectId, inst.source.id);
+      if (!em || !em.enabled) continue;
+      if (em === inst.source) {
+        next.push(inst);
+        continue;
+      }
+      const looped = startsLooped(em);
+      if (looped !== inst.looped) continue; // loop <-> one-shot changes meaning; the next trigger starts it properly
+      const simulated: Emitter = looped ? em : { ...em, emission: { ...em.emission, loop: false } };
+      const sim = new ParticleSim(simulated, { frameCount: this.opts.frameCountOf(simulated) });
+      sim.seek(inst.sim.time, frameFor(em.attachmentId));
+      next.push({ ...inst, emitter: simulated, source: em, sim });
+    }
+    this.instances = next;
+
+    // A weapon that is already held has already "equipped" / "switched" / "idled": an emitter that
+    // becomes active now (added, re-enabled, or given such a trigger) starts immediately, exactly
+    // like the script would pick it up the next time the weapon is selected. Shots and reloads are
+    // real events and are never replayed.
+    if (this.equipped) {
+      for (const effect of Object.values(project.effects)) {
+        for (const em of effect.emitters) {
+          if (!em.enabled) continue;
+          const before = findEmitter(prev, effect.id, em.id);
+          const gained = STATE_EVENTS.filter((ev) => em.triggers.includes(ev) && !(before?.enabled && before.triggers.includes(ev)));
+          if (gained.length > 0) this.start(effect.id, em);
+        }
+      }
+    }
+  }
+
+  /** Call after a spritesheet's frame count changed (re-gridded, re-extracted) so flipbooks use the new count. */
+  refreshFrameCounts(): void {
+    for (const inst of this.instances) inst.sim.cfg.frameCount = this.opts.frameCountOf(inst.emitter);
   }
 
   reset(): void {
@@ -108,6 +155,7 @@ export class RuntimeSimulator {
       id: this.nextId++,
       effectId,
       emitter: em,
+      source: emitter,
       sim: new ParticleSim(em, { frameCount: this.opts.frameCountOf(em) }),
       looped,
     });
@@ -124,4 +172,8 @@ export class RuntimeSimulator {
   get liveParticles(): number {
     return this.instances.reduce((s, i) => s + i.sim.count, 0);
   }
+}
+
+function findEmitter(project: Project, effectId: string, emitterId: string): Emitter | undefined {
+  return project.effects[effectId]?.emitters.find((e) => e.id === emitterId);
 }

@@ -428,9 +428,9 @@ export function Segmented<T extends string>({ value, onChange, options, label }:
 export function Tabs({ value, onValueChange, tabs, children, className }: { value: string; onValueChange: (v: string) => void; tabs: ReadonlyArray<{ value: string; label: ReactNode }>; children?: ReactNode; className?: string }) {
   return (
     <RTabs.Root value={value} onValueChange={onValueChange} className={cn('flex min-h-0 flex-col', className)}>
-      <RTabs.List className="flex shrink-0 gap-0.5 border-b border-lines px-2">
+      <RTabs.List className="flex shrink-0 gap-0 overflow-x-auto border-b border-lines px-1.5 [scrollbar-width:none]">
         {tabs.map((t) => (
-          <RTabs.Trigger key={t.value} value={t.value} className="relative h-8 px-2.5 text-[11.5px] font-medium text-muted transition-colors hover:text-fg data-[state=active]:text-fg data-[state=active]:after:absolute data-[state=active]:after:inset-x-1.5 data-[state=active]:after:bottom-0 data-[state=active]:after:h-0.5 data-[state=active]:after:rounded-full data-[state=active]:after:bg-accent">
+          <RTabs.Trigger key={t.value} value={t.value} className="relative h-8 shrink-0 whitespace-nowrap px-2 text-[11.5px] font-medium text-muted transition-colors hover:text-fg data-[state=active]:text-fg data-[state=active]:after:absolute data-[state=active]:after:inset-x-1.5 data-[state=active]:after:bottom-0 data-[state=active]:after:h-0.5 data-[state=active]:after:rounded-full data-[state=active]:after:bg-accent">
             {t.label}
           </RTabs.Trigger>
         ))}

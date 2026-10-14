@@ -145,3 +145,101 @@ describe('RuntimeSimulator mirrors the generated Lua', () => {
     expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(1);
   });
 });
+
+describe('RuntimeSimulator live edits', () => {
+  it('re-simulates a changed emitter deterministically at the same time', () => {
+    const a = aura('a', ['idle']);
+    const p1 = projectWith(a);
+    const r = make(p1);
+    r.equip();
+    run(r, 0.4);
+    const before = r.instances[0]!;
+    expect(before.sim.time).toBeCloseTo(0.4, 1);
+    const p2 = structuredClone(p1);
+    const eff = Object.values(p2.effects)[0]!;
+    eff.emitters[0]!.emission.rate = 100;
+    r.setProject(p2);
+    const after = r.instances[0]!;
+    expect(after).not.toBe(before);
+    expect(after.sim.time).toBeCloseTo(before.sim.time, 1);
+    expect(after.sim.count).toBeGreaterThan(before.sim.count); // higher rate shows immediately
+    // an identical re-seek reproduces the same particle count as a fresh run to that time
+    const fresh = make(p2);
+    fresh.equip();
+    run(fresh, 0.4);
+    expect(after.sim.count).toBe(fresh.instances[0]!.sim.count);
+  });
+
+  it('keeps untouched instances, drops removed/disabled ones', () => {
+    const a = aura('a', ['idle']);
+    const b = aura('b', ['idle']);
+    const p1 = projectWith(a, b);
+    const r = make(p1);
+    r.equip();
+    run(r, 0.2);
+    const keep = r.instances.find((i) => i.emitter.name === 'a')!;
+    const p2 = structuredClone(p1);
+    const eff = Object.values(p2.effects)[0]!;
+    eff.emitters[1]!.enabled = false;
+    // structuredClone breaks identity, so reuse the original object for the untouched emitter
+    eff.emitters[0] = a;
+    r.setProject(p2);
+    expect(r.instances.map((i) => i.emitter.name)).toEqual(['a']);
+    expect(r.instances[0]).toBe(keep);
+  });
+
+  it('does not duplicate a loop after an edit, and the edited loop keeps running', () => {
+    const p1 = projectWith(aura('a', ['idle']));
+    const r = make(p1);
+    r.equip();
+    const p2 = structuredClone(p1);
+    Object.values(p2.effects)[0]!.emitters[0]!.particle.glow = 3;
+    r.setProject(p2);
+    r.equip(); // already equipped: no-op
+    r.trigger('idle');
+    expect(r.instances).toHaveLength(1);
+  });
+
+  it('follows a spritesheet frame-count change', () => {
+    let frames = 16;
+    const r = new RuntimeSimulator(projectWith(aura('a', ['idle'])), { frameCountOf: () => frames });
+    r.equip();
+    frames = 4;
+    r.refreshFrameCounts();
+    expect(r.instances[0]!.sim.cfg.frameCount).toBe(4);
+  });
+
+  it('starts an idle emitter added while the weapon is held, but never replays shots', () => {
+    const p1 = projectWith(burst('b', ['fired']));
+    const r = make(p1);
+    r.equip();
+    expect(r.instances).toHaveLength(0);
+    const p2 = structuredClone(p1);
+    const fx = Object.values(p2.effects)[0]!;
+    fx.emitters.push(aura('a', ['idle']), burst('b2', ['fired']));
+    r.setProject(p2);
+    expect(r.instances.map((i) => i.emitter.name)).toEqual(['a']);
+  });
+
+  it('starts an emitter when it is re-enabled or gains an idle trigger, and not when holstered', () => {
+    const a = aura('a', ['fired']);
+    const p1 = projectWith(a);
+    const r = make(p1);
+    r.equip();
+    expect(r.instances).toHaveLength(0);
+    const p2 = structuredClone(p1);
+    Object.values(p2.effects)[0]!.emitters[0]!.triggers = ['fired', 'idle'];
+    r.setProject(p2);
+    expect(r.instances).toHaveLength(1);
+    r.switchAway();
+    const p3 = structuredClone(p2);
+    Object.values(p3.effects)[0]!.emitters[0]!.enabled = false;
+    r.setProject(p3);
+    const p4 = structuredClone(p3);
+    Object.values(p4.effects)[0]!.emitters[0]!.enabled = true;
+    r.setProject(p4);
+    expect(r.instances).toHaveLength(0); // holstered: nothing starts until the weapon is equipped again
+    r.equip();
+    expect(r.instances).toHaveLength(1);
+  });
+});
