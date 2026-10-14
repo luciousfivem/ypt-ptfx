@@ -1,3 +1,4 @@
+/// <reference path="./lua-raw.d.ts" />
 /**
  * Builds the FiveM resource: fxmanifest.lua, config.lua, client.lua, optional server.lua,
  * README.md, stream/<asset>.ypt, and an optional `source/` folder with the editable

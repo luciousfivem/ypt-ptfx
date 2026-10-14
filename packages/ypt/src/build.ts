@@ -21,6 +21,7 @@ import {
   evalCurve,
   evalGradient,
   rotateEulerXYZ,
+  startsLooped,
   toGtaSpace,
   type AttachmentPoint,
   type Curve,
@@ -196,7 +197,7 @@ export function ruleNames(effectRule: string, i: number): { particle: string; em
 
 /** Key that decides which emitters can share one effect rule (one start call). */
 function groupKey(em: Emitter): string {
-  return `${em.attachmentId ?? ''}|${[...em.triggers].sort().join(',')}|${em.emission.mode === 'oneShot' || !em.emission.loop ? 'once' : 'loop'}`;
+  return `${em.attachmentId ?? ''}|${[...em.triggers].sort().join(',')}|${startsLooped(em) ? 'loop' : 'once'}`;
 }
 
 /**
@@ -309,7 +310,7 @@ export function buildYptModel(project: Project, sheets: Record<string, SheetAsse
         scale: 1,
         bone: att?.gtaBone ?? null,
         triggers: [...new Set(used.flatMap((u) => u.triggers))].sort() as TriggerEvent[],
-        loop: first.emission.mode !== 'oneShot' && first.emission.loop,
+        loop: startsLooped(first),
         emitterNames: used.map((u) => u.name),
       });
     }
@@ -626,6 +627,9 @@ function buildEmitterRules(
     rate = em.emission.burstCount / BURST_WINDOW_SECONDS;
     note('emission.burst', 'approximated', 'inferred', `A burst of ${em.emission.burstCount} is exported as a ${BURST_WINDOW_SECONDS * 1000} ms window at ${Math.round(rate)}/s. Repeating bursts (interval) are not representable; trigger the effect from script instead.`);
     rangeEnd = em.emission.startDelay + BURST_WINDOW_SECONDS;
+    if (em.emission.loop) {
+      note('emission.loop', 'approximated', 'verified', 'A repeating burst cannot be stored in one effect: the exported effect fires one burst each time the script starts it (once per trigger).');
+    }
   } else if (em.emission.mode === 'oneShot') {
     rate = em.emission.burstCount / BURST_WINDOW_SECONDS;
     note('emission.oneShot', 'approximated', 'inferred', `One-shot of ${em.emission.burstCount} particles exported as a ${BURST_WINDOW_SECONDS * 1000} ms window; IsOneShot is set.`);
