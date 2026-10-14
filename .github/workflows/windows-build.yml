@@ -1,0 +1,88 @@
+# Builds the VFXForge Windows installer on a real Windows runner and runs the Windows-relevant tests.
+#
+# Trigger: pushes to the development branch, or manually (Actions tab -> "Windows build" -> Run workflow).
+# Result:  download the "VFXForge-windows-installer" artifact from the run page.
+#
+# The CodeWalker converter bridge is NOT built here (CodeWalker is GPL and is never vendored); build it
+# yourself against your own checkout (docs/YPT_BRIDGE.md). FFmpeg is not bundled either.
+name: Windows build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ccr-dce879d1-st6c68]
+    paths-ignore: ['docs/**', '**/*.md']
+
+permissions:
+  contents: read
+
+jobs:
+  installer:
+    name: Installer (NSIS + MSI)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4   # version comes from "packageManager" in package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the app and installers
+        run: pnpm --filter @vfxforge/desktop exec tauri build --bundles nsis,msi
+
+      - name: Collect outputs
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item target/release/bundle/nsis/*.exe out/ -ErrorAction SilentlyContinue
+          Copy-Item target/release/bundle/msi/*.msi out/ -ErrorAction SilentlyContinue
+          Copy-Item target/release/vfxforge-desktop.exe out/VFXForge-portable.exe
+          Get-ChildItem out | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VFXForge-windows-installer
+          path: out/*
+          if-no-files-found: error
+
+  tests:
+    name: Tests on Windows
+    runs-on: windows-latest
+    timeout-minutes: 60
+    # the installer is the deliverable; a failing test must not hide it, but it is reported in the run
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install FFmpeg
+        run: choco install ffmpeg -y --no-progress
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+      - name: Rust tests (native crate, incl. real FFmpeg integration)
+        run: cargo test -p vfxforge-native
+
+      - name: Build the CLI used by the TypeScript integration tests
+        run: cargo build -p vfxforge-native
+
+      - name: TypeScript tests
+        run: pnpm test
