@@ -1,3 +1,4 @@
+import { useProject } from '../state/project';
 import { createBrowserPlatform } from './browser';
 import type { Platform } from './types';
 
@@ -10,7 +11,7 @@ export async function getPlatform(): Promise<Platform> {
   if (instance) return instance;
   const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
   if (inTauri) {
-    const [{ createTauriPlatform }, { useProject }] = await Promise.all([import('./tauri'), import('../state/project')]);
+    const { createTauriPlatform } = await import('./tauri');
     instance = await createTauriPlatform({ activeProjectId: () => useProject.getState().project.id });
   } else {
     instance = createBrowserPlatform();

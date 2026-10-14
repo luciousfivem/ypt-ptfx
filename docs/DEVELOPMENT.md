@@ -52,6 +52,11 @@ Optional environment: `VFXFORGE_BRIDGE_DLL` (converter oracle tests), `VFXFORGE_
 | Rust | unit tests, hostile-input tests, real FFmpeg integration, real bridge integration, process-tree cancellation |
 | Desktop | RPC/worker over `MessageChannel`, derived-state service, Tauri client against a fake core, cross-language wire-format bytes, Playwright e2e in Chromium (WebGL via SwiftShader) |
 
+## Desktop smoke test (Linux)
+
+`apps/desktop/scripts/desktop-smoke.sh` launches the release build under Xvfb and clicks through preset → export
+(see the header of the script for the exact command). It is a manual check, not part of `pnpm test`.
+
 ## Packaging
 
 ```bash

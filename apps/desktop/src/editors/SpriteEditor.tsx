@@ -3,6 +3,7 @@ import { arrangeSequence } from '@vfxforge/media';
 import { ChevronLeft, ChevronRight, Copy, Download, FileImage, Pause, Play, RotateCcw, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button, EmptyState, IconButton, NumberField, PanelFrame, Progress, Segmented } from '../components/ui';
+import { FitBox } from '../components/FitBox';
 import { RgbaCanvas } from '../components/RgbaCanvas';
 import { cn } from '../lib/cn';
 import { pickAndImport } from '../services/actions';
@@ -203,8 +204,8 @@ export function SpriteEditor() {
           </header>
           <div className={cn('relative flex min-h-[160px] flex-1 items-center justify-center overflow-hidden', BACKDROP[backdrop])}>
             {preview && (
-              <div className="relative max-h-full max-w-full" style={{ aspectRatio: `${sheet.texture.width} / ${sheet.texture.height}`, height: '100%' }}>
-                <RgbaCanvas image={preview.atlas} className="size-full" label={`Spritesheet atlas ${sheet.grid.cols} by ${sheet.grid.rows}`} />
+              <FitBox aspect={sheet.texture.width / sheet.texture.height}>
+                <RgbaCanvas image={preview.atlas} className="size-full max-h-none max-w-none" label={`Spritesheet atlas ${sheet.grid.cols} by ${sheet.grid.rows}`} />
                 <svg viewBox={`0 0 ${sheet.grid.cols} ${sheet.grid.rows}`} preserveAspectRatio="none" className="pointer-events-none absolute inset-0 size-full" aria-hidden>
                   {Array.from({ length: sheet.grid.cols + 1 }, (_, i) => <line key={`v${i}`} x1={i} x2={i} y1={0} y2={sheet.grid.rows} stroke="var(--accent-2)" strokeOpacity="0.55" strokeWidth="0.02" vectorEffect="non-scaling-stroke" />)}
                   {Array.from({ length: sheet.grid.rows + 1 }, (_, i) => <line key={`h${i}`} y1={i} y2={i} x1={0} x2={sheet.grid.cols} stroke="var(--accent-2)" strokeOpacity="0.55" strokeWidth="0.02" vectorEffect="non-scaling-stroke" />)}
@@ -214,7 +215,7 @@ export function SpriteEditor() {
                     return p ? <rect x={p.col} y={p.row} width={1} height={1} fill="var(--accent)" fillOpacity="0.18" stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" /> : null;
                   })()}
                 </svg>
-              </div>
+              </FitBox>
             )}
           </div>
         </section>
