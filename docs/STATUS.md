@@ -8,9 +8,10 @@ stated. Nothing here was run inside GTA V or FiveM, because that cannot be done 
 
 | Suite | Count | What it exercises |
 |---|---|---|
-| TypeScript unit/integration (vitest) | 359 (+1 opt-in generator) | core 34 · media 57 · ypt 55 · fivem 48 · export 49 · particles 73 · desktop 43 |
-| Rust (`cargo test --workspace`) | 83 | native 56 unit · FFmpeg integration 13 · CodeWalker converter integration 4 · Tauri IPC 10 |
-| UI end-to-end (Playwright, Chromium, WebGL via SwiftShader) | 17 | boot, presets, undo, import (real WebM), content-sniffing rejection, drag & drop, GLB import, persistence, crash recovery, export ZIP, shortcuts |
+| TypeScript unit/integration (vitest) | 409 (+1 opt-in generator) | core 34 · media 57 · ypt 55 · fivem 48 · export 49 · particles 73 · desktop 93 (incl. 8 that run the real bridge on `.ydr` fixtures) |
+| Rust (`cargo test --workspace`) | 124 | native 83 unit · FFmpeg integration 13 · CodeWalker converter integration 4 · `.ydr` import integration 11 · Tauri IPC 13 |
+| UI end-to-end (Playwright, Chromium, WebGL via SwiftShader) | 29 (+1 opt-in screenshots) | boot, presets, undo, import (real WebM), content-sniffing rejection, drag & drop, GLB import, persistence, crash recovery, export ZIP, shortcuts; `.ydr`: browser refusal, converted-GLB notes, desktop dialog filters / drop / errors against a scripted core |
+| `.ydr` converter fixtures (`tools/ypt-bridge/fixtures/check.mjs`) | 6 cases | golden GLBs and replies against the real bridge |
 | Typecheck | all 7 TS projects + `cargo clippy` clean | |
 
 **Windows (GitHub `windows-latest`, commit 42b61f3):** installer job green (NSIS + MSI + portable exe); typecheck
@@ -32,8 +33,9 @@ Commands: see [`DEVELOPMENT.md`](DEVELOPMENT.md).
 | Lua | `luac 5.4 -p` syntax; behavioural harness with a mocked FiveM runtime (21 scenarios: no duplicate loops, cleanup on switch/death/restart, rate limit, asset-load failure retry, sync validation, injection attempts); **mutation testing**: 9 injected bugs, all caught |
 | Particle simulation | Exact integration of constant acceleration + linear drag matches the analytic solution; deterministic by seed; flipbook frame selection; live edits re-simulate to the same state as a fresh run |
 | FFmpeg handling | Frame count/order/content exact on a lossless fixture; time window, frame cap, skip, resize/aspect, blend interpolation, progress events; GIF and WebM through forced demuxers; corrupt/hostile inputs; concurrent extractions; cancel and timeout kill the whole process tree (regression test for a grandchild holding the pipes). A VP9 WebM with an alpha channel keeps its transparency (probe + extracted PNG alpha checked) |
-| Desktop shell | The **real release binary** (embedded frontend, production CSP, WebKitGTK) was launched under Xvfb and driven with xdotool (`apps/desktop/scripts/desktop-smoke.sh`): preset → sheet built in the worker → Export → **“Export complete … CodeWalker 1.0.0.0 loaded the binary YPT (RSC7 v68) and its structure matched the XML”** ([screenshot](screenshots/desktop-export-complete.png)). The same app imported an H.264 MP4 through the **native file dialog**, probed it with ffprobe and extracted frames with FFmpeg over the IPC channel into a keyed 4×4 atlas ([screenshot](screenshots/desktop-video-import.png)). A `.deb` bundle (5.3 MiB) builds. 10 IPC tests drive the actual command table (camelCase args, raw bodies, errors, FFmpeg extraction through a channel, CodeWalker conversion); the VFXW wire format is byte-identical in Rust and TypeScript |
-| UI | 17 Chromium end-to-end tests; no test is allowed to log a console error |
+| Desktop shell | The **real release binary** (embedded frontend, production CSP, WebKitGTK) was launched under Xvfb and driven with xdotool (`apps/desktop/scripts/desktop-smoke.sh`): preset → sheet built in the worker → Export → **“Export complete … CodeWalker 1.0.0.0 loaded the binary YPT (RSC7 v68) and its structure matched the XML”** ([screenshot](screenshots/desktop-export-complete.png)). The same app imported an H.264 MP4 through the **native file dialog**, probed it with ffprobe and extracted frames with FFmpeg over the IPC channel into a keyed 4×4 atlas ([screenshot](screenshots/desktop-video-import.png)). The release app also imported a `.ydr` through the native dialog's **GTA V drawable (ydr)** filter with the real bridge ([dialog](screenshots/desktop-ydr-dialog.png), [result](screenshots/desktop-ydr-import.png)): the stored asset is byte-identical to the golden GLB, the scratch folder was empty afterwards, and the inspector showed the converter's counts and notes. A `.deb` bundle (5.3 MiB) builds. 13 IPC tests drive the actual command table (camelCase args, raw bodies, errors, FFmpeg extraction through a channel, CodeWalker conversion); the VFXW wire format is byte-identical in Rust and TypeScript |
+| `.ydr` model import | `ydr2glb` converts drawables written by **real CodeWalker.Core** from XML authored here (`tools/ypt-bridge/fixtures`): cube, multiple LODs and vertex layouts (Float3 / RGBA8SNorm normals, Float2 / Half2 UVs), a clockwise-stored geometry, geometries without normals, a 4-bone skeleton with rotated / chained / mirrored / skinned parts, a mirrored part without normals, and a gen9 (v159) cube. Every output was checked against independently computed positions, bounds and winding, three.js `GLTFLoader`, and the Khronos glTF validator (0 errors); outputs are deterministic. Hostile inputs (empty, truncated, RSC7 + garbage, a YPT renamed, huge counts, out-of-range indices, NaN, 700,000-node linked chains) give a JSON error, not a crash or hang. The Rust import path runs the real bridge in 11 integration + 3 IPC tests (stored GLB, dedupe, scratch cleanup, old-bridge and missing-bridge messages) |
+| UI | Chromium end-to-end tests (count above); no test is allowed to log a console error |
 | Safety | Hostile inputs: path traversal, `//` and UNC paths, Lua/XML injection, XXE/DTD, tampered bundles (hash/format), text files named `.png`, oversize/hostile wire lengths |
 
 ## Not verified — and why
@@ -43,6 +45,7 @@ Commands: see [`DEVELOPMENT.md`](DEVELOPMENT.md).
 | **Effects rendering in GTA V / FiveM** | **Unverified.** Several engine-level values are inferred from CodeWalker field names (shader/render-state names, blend-set enums, key-frame semantics, units) and are labelled `inferred`/`unverified` in the fidelity report. Use the donor-template strategy and [`FIVEM_TEST_CHECKLIST.md`](FIVEM_TEST_CHECKLIST.md) |
 | **Flipbook frame → UV mapping in the engine** | **Unverifiable offline.** The brief names `ptxclipregions.dat`; CodeWalker has no reference to it, so its format cannot be read, written or checked here. VFXForge writes frame ids and animate-texture settings and reports *structural* validity only (`engineVerified` is always `false`) |
 | Legacy vs Enhanced in-game | The Enhanced (gen9) binary is produced and read back by CodeWalker; how the Enhanced game consumes it is untested |
+| **Real GTA V `.ydr` files** | **Not yet converted.** No game or mod drawable was available; real files may use vertex layouts, shader blocks or skeleton setups the fixtures do not cover (the converter skips what it cannot decode and says so). Whether weapon drawables point the barrel along GTA +Y (−Z in the preview) is unverified. The desktop app's `.ydr` import was not driven through a native dialog on Windows |
 | Windows app in use | The NSIS/MSI installers **build** on a GitHub `windows-latest` runner and the Windows test run is green (below), but **nobody has installed or launched the Windows build yet**: the UI has never been driven on WebView2 (Chromium and WebKitGTK are the engines actually exercised), and installing/uninstalling, the SmartScreen prompt for an unsigned installer, and file dialogs on Windows are untested. The Windows test run has no CodeWalker bridge and no Lua, so the binary-`.ypt` path and the Lua scenarios were only run on Linux |
 | macOS | Not built or tested |
 | Preview fidelity/performance | The WebGL preview is an approximation (additive/alpha blending, bloom, billboards) and not GTA V's renderer. Frame rates were only measured with **software** GL (≈10–35 fps at reduced resolution); real GPUs should be much faster but this was not measured |
@@ -59,6 +62,8 @@ Commands: see [`DEVELOPMENT.md`](DEVELOPMENT.md).
 * **Cone** emission is approximated (GTA has no cone domain); **drag** and **turbulence** are approximated;
   multi-axis rotations assume an Euler order (single-axis rotations are exact) — all flagged.
 * **FBX** import is experimental, **OBJ** loads geometry only, glTF with external files is refused (use GLB).
+* **`.ydr`** import is desktop-only, needs the converter bridge, and is **geometry only**: no GTA textures or shaders,
+  skinned parts in bind pose, one level of detail. Only the converted GLB is stored, not the `.ydr`.
 * WebP animations are decoded by the web engine (FFmpeg has no WebP demuxer here); frame interpolation needs FFmpeg.
 * Sprite sheets are limited to what the atlas builder can lay out (grid ≤ 64×64, texture ≤ 8192², power-of-two is
   *warned about*, not forced).
@@ -72,7 +77,7 @@ Commands: see [`DEVELOPMENT.md`](DEVELOPMENT.md).
 | Spritesheet generator (grid, padding, extrude, trim, PNG + DDS), procedural single-image animation | ✔ |
 | Layered editing (clip recipe + emitter layers, frame list with hold/duplicate/delete/reorder) | ✔ |
 | Particle editor with curves + gradients, 30 presets in 6 categories | ✔ |
-| 3D weapon preview, model import, attachment gizmos, event simulation, environments | ✔ (model import: GLB/glTF/OBJ; FBX experimental) |
+| 3D weapon preview, model import, attachment gizmos, event simulation, environments | ✔ (model import: GLB/glTF/OBJ; FBX experimental; `.ydr` on desktop via the bridge, geometry only) |
 | Flipbook Compatibility Validator | ✔ (structural; never claims engine compatibility) |
 | Validated `.ypt.xml` + binary `.ypt` with round-trip + FiveM resource/ZIP/Lua | ✔ (binary needs the CodeWalker bridge) |
 | Multi-effect, before/after, cost estimates, undo/redo, autosave/recovery, project bundles, drag & drop, preset sharing, shortcuts, light/dark | ✔ |

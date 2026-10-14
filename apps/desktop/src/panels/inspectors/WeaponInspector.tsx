@@ -8,8 +8,9 @@ import { svc } from '../../services/app';
 import { editProject, useProject } from '../../state/project';
 import { useRuntime } from '../../state/runtime';
 import { useUi } from '../../state/ui';
+import { isYdrName, modelPicker } from '../../lib/model-files';
 import { MODEL_ORIENTATIONS } from '../../viewport/orientations';
-import { MODEL_NOTES, modelFormatOf } from '../../viewport/models';
+import { MODEL_NOTES, YDR_NOTE, modelFormatOf } from '../../viewport/models';
 import { Note } from './common';
 
 const PRESET_LABEL: Record<Weapon['preset'], string> = { pistol: 'Pistol', smg: 'SMG', rifle: 'Assault rifle', shotgun: 'Shotgun', sniper: 'Sniper rifle', custom: 'Custom model' };
@@ -35,7 +36,8 @@ export function WeaponInspector() {
   const select = useUi((s) => s.select);
 
   const pickModel = async () => {
-    const files = await svc().platform.pickFiles({ accept: ['.glb', '.gltf', '.obj', '.fbx'], title: 'Import a weapon model' });
+    const { accept, filters } = modelPicker(svc().platform.kind);
+    const files = await svc().platform.pickFiles({ accept, filters, title: 'Import a weapon model' });
     if (files.length) await importFiles(files);
   };
 
@@ -83,6 +85,8 @@ export function WeaponInspector() {
             {modelError && <Note tone="danger">{modelError}</Note>}
             {modelInfo?.warnings.map((w, i) => <Note key={i} tone="warn">{w}</Note>)}
             {(() => {
+              // the loaded file says where it came from; until it has loaded, the stored name (kept from the .ydr) stands in
+              if (modelInfo ? modelInfo.origin === 'ydr' : isYdrName(model.name)) return <Note>{YDR_NOTE}</Note>;
               const f = modelFormatOf(model.file);
               return f ? <Note>{MODEL_NOTES[f]}</Note> : null;
             })()}
@@ -107,7 +111,7 @@ export function WeaponInspector() {
             <Note>Fix the scale so 1 unit = 1 metre and orient the barrel toward −Z (up = +Y). Attachment offsets are exported in GTA axes from that convention.</Note>
           </div>
         ) : (
-          <EmptyModel onPick={pickModel} />
+          <EmptyModel onPick={pickModel} desktop={svc().platform.kind === 'tauri'} />
         )}
       </Section>
 
@@ -148,10 +152,15 @@ export function WeaponInspector() {
   );
 }
 
-function EmptyModel({ onPick }: { onPick: () => void }) {
+function EmptyModel({ onPick, desktop }: { onPick: () => void; desktop: boolean }) {
   return (
     <div className="space-y-2">
       <Note>Import your own weapon to preview effects on it: GLB / glTF (recommended), OBJ, or FBX (experimental). The model is only used for the preview and attachment placement; it is never added to the exported resource.</Note>
+      <Note>
+        {desktop
+          ? 'A GTA V drawable (.ydr) can be imported too: the desktop app converts it to a GLB with your CodeWalker converter bridge (Settings > Tools). Geometry only; GTA textures and shaders are not converted.'
+          : 'A GTA V drawable (.ydr) needs the desktop app with the CodeWalker converter bridge; here, export the model as .glb first.'}
+      </Note>
       <Button icon={<Upload className="size-3.5" aria-hidden />} onClick={onPick}>Import model…</Button>
     </div>
   );

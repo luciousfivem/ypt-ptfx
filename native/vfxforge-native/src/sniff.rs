@@ -209,6 +209,22 @@ pub fn extension_matches(kind: MediaKind, ext: &str) -> bool {
     kind.extensions().contains(&e.as_str())
 }
 
+/// The version dword of a GTA V resource header: the magic `RSC7` at offset 0 and the version as a
+/// little-endian `u32` at offset 4. `None` when `head` does not start with that magic or is too short
+/// to hold the version.
+///
+/// This is deliberately NOT a [`MediaKind`]: a raw `.ydr` (or any other resource) is never stored as an
+/// asset, only converted by the bridge, so [`sniff`] keeps classifying it as `Unknown`. The version is the
+/// header's own claim and says nothing about what kind of resource follows; the bridge decides that from
+/// the page flags.
+pub fn rsc7_version(head: &[u8]) -> Option<u32> {
+    if head.len() >= 8 && &head[..4] == b"RSC7" {
+        Some(u32::from_le_bytes([head[4], head[5], head[6], head[7]]))
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -266,6 +282,43 @@ mod tests {
         assert_eq!(sniff(b"ffconcat version 1.0\nfile '/etc/passwd'\n").kind, MediaKind::Unknown);
         assert_eq!(sniff(&[1, 2, 3, 4, 5]).kind, MediaKind::Unknown);
         assert_eq!(sniff(&[]).kind, MediaKind::Unknown);
+    }
+
+    #[test]
+    fn reads_the_rsc7_version_little_endian() {
+        let mut head = b"RSC7".to_vec();
+        head.extend_from_slice(&165u32.to_le_bytes());
+        head.extend_from_slice(&[0x11; 8]);
+        assert_eq!(rsc7_version(&head), Some(165));
+        assert_eq!(rsc7_version(b"RSC7\x44\x00\x00\x00"), Some(68));
+        assert_eq!(rsc7_version(b"RSC7\x01\x02\x03\x04"), Some(0x0403_0201));
+        // exactly the 8 bytes it needs, nothing less
+        assert_eq!(rsc7_version(b"RSC7\xa5\x00\x00"), None);
+        assert_eq!(rsc7_version(b"RSC7"), None);
+        assert_eq!(rsc7_version(&[]), None);
+    }
+
+    #[test]
+    fn rsc7_needs_the_exact_magic_at_offset_zero() {
+        for bad in [&b"RSC8\xa5\x00\x00\x00"[..], b"rsc7\xa5\x00\x00\x00", b" RSC7\xa5\x00\x00\x00", b"\x00RSC7\xa5\x00\x00", b"glTF\x02\x00\x00\x00", b"RSC\x00\xa5\x00\x00\x00"] {
+            assert_eq!(rsc7_version(bad), None, "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn a_resource_file_is_never_a_media_kind() {
+        // a drawable, a particle file, a texture dictionary... all share the RSC7 container and none is storable media
+        for version in [165u32, 159, 154, 68, 71, 13, 5] {
+            let mut file = b"RSC7".to_vec();
+            file.extend_from_slice(&version.to_le_bytes());
+            file.extend_from_slice(&[0xA5; 64]);
+            let s = sniff(&file);
+            assert_eq!(s.kind, MediaKind::Unknown, "version {version}");
+            assert_eq!(s.category, Category::Unknown);
+            assert!(rsc7_version(&file).is_some());
+        }
+        assert!(!MediaKind::Glb.extensions().contains(&"ydr"));
+        assert!(![MediaKind::Glb, MediaKind::Gltf, MediaKind::Obj, MediaKind::Fbx].iter().any(|k| k.extensions().contains(&"ydr")));
     }
 
     #[test]

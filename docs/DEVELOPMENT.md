@@ -31,13 +31,15 @@ GUI dependency**; the Tauri crate is a thin command layer over it.
 pnpm install
 pnpm typecheck                 # all packages
 pnpm test                      # vitest: core, media, ypt, fivem, export, particles, desktop
-cargo test -p vfxforge-native  # Rust unit + integration (ffmpeg, bridge)
+cargo test --workspace         # Rust unit + integration (ffmpeg, bridge, .ydr import) + Tauri IPC tests
 pnpm --filter @vfxforge/desktop dev      # the UI in a browser at http://127.0.0.1:1420 (browser platform)
 pnpm --filter @vfxforge/desktop tauri dev  # the real desktop app
 pnpm --filter @vfxforge/desktop exec playwright test   # UI end-to-end (Chromium)
+node tools/ypt-bridge/fixtures/check.mjs              # ydr2glb fixtures against a built bridge (skips without it)
 ```
 
-Optional environment: `VFXFORGE_BRIDGE_DLL` (converter oracle tests), `VFXFORGE_CLI` (Rust CLI path),
+Optional environment: `VFXFORGE_BRIDGE_DLL` (converter oracle tests and the real-bridge `.ydr` tests in Rust and TypeScript),
+`VFXFORGE_OLD_BRIDGE_DLL` (a pre-0.2.0 bridge, for the "too old" message test), `VFXFORGE_CLI` (Rust CLI path),
 `VFXFORGE_KEEP_ARTIFACTS=1` (keep export artifacts for inspection), `VFXFORGE_CHROMIUM` (browser binary).
 
 ## Test strategy
@@ -49,7 +51,8 @@ Optional environment: `VFXFORGE_BRIDGE_DLL` (converter oracle tests), `VFXFORGE_
 | Lua | `luac -p` syntax + a behavioural harness with a mocked FiveM runtime (21 scenarios) and **mutation testing** (each injected bug must be caught) |
 | Simulator | analytic physics (exact integration of constant acceleration + linear drag), determinism, flipbook frame selection |
 | Export | acceptance test with real FFmpeg + real CodeWalker; all 30 presets; every gate (no converter, failed round-trip, throwing converter, invalid project, cancellation) |
-| Rust | unit tests, hostile-input tests, real FFmpeg integration, real bridge integration, process-tree cancellation |
+| Rust | unit tests, hostile-input tests, real FFmpeg integration, real bridge integration (YPT and `.ydr`), process-tree cancellation; a `/bin/sh` stand-in for the bridge covers argument shape, reply handling, crashes and scratch cleanup without .NET |
+| `.ydr` converter | synthetic drawables written by CodeWalker from XML authored here (`tools/ypt-bridge/fixtures`), golden GLBs, values from an independent computation, Khronos validator, hostile inputs (`check.mjs`) |
 | Desktop | RPC/worker over `MessageChannel`, derived-state service, Tauri client against a fake core, cross-language wire-format bytes, Playwright e2e in Chromium (WebGL via SwiftShader) |
 
 ## Desktop smoke test (Linux)

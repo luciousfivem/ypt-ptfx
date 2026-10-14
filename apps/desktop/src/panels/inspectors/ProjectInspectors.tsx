@@ -3,6 +3,7 @@ import { WEAPON_PRESET_NAMES, isWeaponName, weaponHash } from '@vfxforge/fivem';
 import { Box, Copy, Film, Plus, Share2, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { Badge, Button, Field, Section, SelectField, Segmented, TextField } from '../../components/ui';
+import { isConvertedYdr } from '../../lib/model-files';
 import { assetUsage, createClipFromAsset, deleteAsset, deleteClip, deleteEffect, deleteSheet, duplicateEffect, exportEffectPackage, addSheetForClip } from '../../services/actions';
 import { editProject, getProject, useProject } from '../../state/project';
 import { useUi } from '../../state/ui';
@@ -22,7 +23,12 @@ export function AssetInspector({ id }: { id: string }) {
       {asset.info && <Field label="Size"><span className="text-[12px] text-fg">{asset.info.width}×{asset.info.height}{asset.info.durationSec ? ` · ${asset.info.durationSec.toFixed(2)} s` : ''}{asset.info.hasAlpha ? ' · alpha' : ''}</span></Field>}
       <Field label="File"><span className="text-[12px] text-fg">{(asset.bytes / 1048576).toFixed(2)} MiB</span></Field>
       <Field label="SHA-256"><span className="break-all font-mono text-[10px] text-dim">{asset.sha256.slice(0, 32)}…</span></Field>
-      <Note>{uses.length ? `Used by ${uses.join(', ')}.` : 'Not used yet.'} The original file is stored unchanged, addressed by its hash.</Note>
+      <Note>
+        {uses.length ? `Used by ${uses.join(', ')}.` : 'Not used yet.'}{' '}
+        {isConvertedYdr(asset)
+          ? 'Converted to a GLB when it was imported; the GLB is stored, addressed by its hash, and the .ydr itself is not. Keep your original .ydr if you may want to convert it again.'
+          : 'The original file is stored unchanged, addressed by its hash.'}
+      </Note>
       <div className="flex flex-wrap gap-1">
         {asset.kind !== 'model' && !hasClip && (
           <Button

@@ -46,7 +46,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { DEG2RAD, RAD2DEG, type Asset, type Emitter, type Project, type Sheet, type Weapon } from '@vfxforge/core';
 import { IDENTITY_FRAME, RuntimeSimulator, type EmitterFrame } from '@vfxforge/particles';
 import type { SheetPreview } from '../workers/engine-core';
-import { loadModel, modelFormatOf, type LoadedModel } from './models';
+import { loadModel, modelFormatOf, type LoadedModel, type ModelOrigin } from './models';
 import { ParticleRenderer, textureFromImage, type SheetTexture } from './particles-gl';
 import { buildProceduralWeapon, weaponLength, type BuiltWeapon } from './weapons';
 
@@ -68,6 +68,8 @@ export interface ModelInfo {
   size: Vec3;
   triangles: number;
   warnings: string[];
+  /** "ydr" for a GLB that was converted from a GTA V drawable; null otherwise. */
+  origin: ModelOrigin | null;
 }
 
 export interface ViewportCallbacks {
@@ -521,7 +523,7 @@ export class ViewportEngine {
           this.imported = model;
           this.modelHolder.add(model.root);
           this.applyModelTransform(this.project?.weapon ?? weapon);
-          this.cb.onModel({ name: asset.name, size: model.size, triangles: model.triangles, warnings: model.warnings }, null);
+          this.cb.onModel({ name: asset.name, size: model.size, triangles: model.triangles, warnings: model.warnings, origin: model.origin }, null);
           this.dirty = true;
         } catch (e) {
           if (token !== this.modelToken) return;

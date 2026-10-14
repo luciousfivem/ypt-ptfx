@@ -1,0 +1,6 @@
+# fixtures are byte-exact: never let git rewrite line endings or merge them as text
+*.ydr binary
+*.glb binary
+*.xml text eol=lf
+*.json text eol=lf
+*.mjs text eol=lf

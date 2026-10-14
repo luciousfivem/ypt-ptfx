@@ -1,0 +1,2 @@
+# byte-exact golden outputs of the bridge's ydr2glb command (copied from tools/ypt-bridge/fixtures)
+*.glb binary

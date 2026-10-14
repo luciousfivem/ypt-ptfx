@@ -19,7 +19,7 @@ those effects on a weapon, and exports a **FiveM resource** (`.ypt` + textures +
 |---|---|
 | **Sprite Editor** (1) | Frames: extraction, background removal, colour, the atlas, per-frame holds/order, PNG/DDS output |
 | **Particle Editor** (2) | Emitters: emission, shape, look, physics, flipbook, placement; curves and gradients |
-| **Weapon Preview** (3) | The weapon: built-in stand-ins or your own GLB/glTF/OBJ/FBX, attachment points with a move/rotate gizmo, environments |
+| **Weapon Preview** (3) | The weapon: built-in stand-ins or your own GLB/glTF/OBJ/FBX (or a GTA V `.ydr` on the desktop app), attachment points with a move/rotate gizmo, environments |
 
 Panels resize; the layout is remembered. Everything is undoable (Ctrl+Z / Ctrl+Shift+Z); dragging a slider or
 typing repeatedly in one field is a single undo step. Work is autosaved to a recoverable snapshot — after a crash
@@ -66,6 +66,14 @@ VFXForge offers to recover it. *Save* (Ctrl+S) stores the project; *Save as bund
 * Import your own model for the preview: **GLB** (best), glTF with embedded data, OBJ (geometry only), FBX
   (experimental). Set the scale (1 unit = 1 m; *Auto-fit* helps) and orient it so the barrel points to −Z with +Y up
   (the *Orientation* menu converts from common conventions). The model is **never** put in the exported resource.
+* **GTA V `.ydr` drawables** (desktop app only; needs the converter bridge, [`YPT_BRIDGE.md`](YPT_BRIDGE.md)): pick
+  *GTA V drawable (ydr)* in the import dialog's file-type list, or drop the file on the window. VFXForge converts it to a
+  GLB when you import it: the highest level of detail that has usable geometry, parts bound to skeleton bones placed at
+  their rest pose, GTA's Z-up axes turned into the preview's Y-up, metres kept (Scale 1, Rotation 0 are set for you).
+  It is **geometry only**: GTA textures and shaders are not converted, the model is shown in a neutral material, and
+  skinned parts are shown unposed. The converter's notes appear under the model. Only the converted GLB is stored, so
+  keep your `.ydr`. If the barrel does not point to −Z, use a *Y-up* Orientation (not the Z-up one: the axes are already
+  converted).
 * **Attachment points** carry the offset/rotation the Lua script uses at runtime (and an optional GTA bone name you
   type yourself — it cannot be validated outside the game).
 
@@ -95,6 +103,11 @@ Press **?** in the app. Highlights: Ctrl+S/O/N/I/E, Ctrl+Z / Ctrl+Shift+Z, Space
 |---|---|
 | “Video import needs FFmpeg” | Install FFmpeg and add it to PATH, or set it in Settings → Tools (desktop). The browser build uses the browser's decoders (WebM/MP4 where supported). |
 | “Binary .ypt: converter unavailable” | Build the bridge — [`YPT_BRIDGE.md`](YPT_BRIDGE.md). |
+| No “GTA V drawable (ydr)” in the import dialog | That is the browser build; `.ydr` import needs the desktop app. |
+| “….ydr: … converter bridge is not configured” | Build the bridge and select its DLL in Settings → Tools; or export the model from your 3D tool as `.glb`. |
+| “…this converter bridge is too old to convert .ydr drawables” | A bridge built before `.ydr` support: rebuild `tools/ypt-bridge` from this version and select the new DLL. |
+| “…not a GTA V resource file” / “…no renderable geometry” | The file is not a drawable (for example a `.ydd`, `.yft` or `.ytd` renamed), or none of its geometry could be read; the message says which. |
+| A part of a converted `.ydr` is missing or looks inside-out | Its winding could not be judged from normals; the model notes say which geometry. Export that model as `.glb` instead. |
 | Preview is slow | Settings → Preview quality (Auto lowers resolution/bloom when the frame rate drops); disable bloom; reduce *Max particles*. |
 | Atlas looks wrong after changing the grid | The grid must divide the texture exactly; check the red message in the Sheet inspector. |
 | Nothing shows in game | [`FIVEM_TEST_CHECKLIST.md`](FIVEM_TEST_CHECKLIST.md) §1–3; try the donor-template strategy. |

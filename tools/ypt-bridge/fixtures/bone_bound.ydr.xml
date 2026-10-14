@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Drawable>
+ <Name>vfxforge_bone_bound</Name>
+ <BoundingSphereCenter x="0.5" y="1" z="0.75" />
+ <BoundingSphereRadius value="1.952562" />
+ <BoundingBoxMin x="-0.5" y="-0.5" z="0" />
+ <BoundingBoxMax x="1.5" y="2.5" z="1.5" />
+ <LodDistHigh value="9998" />
+ <LodDistMed value="9998" />
+ <LodDistLow value="9998" />
+ <LodDistVlow value="9998" />
+ <FlagsHigh value="0" />
+ <FlagsMed value="0" />
+ <FlagsLow value="0" />
+ <FlagsVlow value="0" />
+ <ShaderGroup>
+  <Shaders>
+   <Item>
+    <Name>default</Name>
+    <FileName>default.sps</FileName>
+    <RenderBucket value="0" />
+   </Item>
+  </Shaders>
+ </ShaderGroup>
+ <Skeleton>
+  <Unknown1C value="0" />
+  <Unknown50 value="0" />
+  <Unknown54 value="0" />
+  <Unknown58 value="0" />
+  <Bones>
+   <Item>
+    <Name>root</Name>
+    <Tag value="0" />
+    <Index value="0" />
+    <ParentIndex value="-1" />
+    <SiblingIndex value="-1" />
+    <Flags>RotX, RotY, RotZ, TransX, TransY, TransZ</Flags>
+    <Translation x="0" y="0" z="0" />
+    <Rotation x="0" y="0" z="0" w="1" />
+    <Scale x="1" y="1" z="1" />
+    <TransformUnk x="0" y="0" z="0" w="0" />
+   </Item>
+   <Item>
+    <Name>mount</Name>
+    <Tag value="1001" />
+    <Index value="1" />
+    <ParentIndex value="0" />
+    <SiblingIndex value="-1" />
+    <Flags>RotX, RotY, RotZ, TransX, TransY, TransZ</Flags>
+    <Translation x="0.25" y="0.5" z="0.125" />
+    <Rotation x="0" y="0" z="0.7071067811865476" w="0.7071067811865476" />
+    <Scale x="1" y="1" z="1" />
+    <TransformUnk x="0" y="4" z="-3" w="0" />
+   </Item>
+   <Item>
+    <Name>muzzle</Name>
+    <Tag value="1002" />
+    <Index value="2" />
+    <ParentIndex value="1" />
+    <SiblingIndex value="-1" />
+    <Flags>RotX, RotY, RotZ, TransX, TransY, TransZ</Flags>
+    <Translation x="0" y="1" z="0.25" />
+    <Rotation x="0.7071067811865476" y="0" z="0" w="0.7071067811865476" />
+    <Scale x="1" y="1" z="1" />
+    <TransformUnk x="0" y="4" z="-3" w="0" />
+   </Item>
+   <Item>
+    <Name>mirror</Name>
+    <Tag value="1003" />
+    <Index value="3" />
+    <ParentIndex value="0" />
+    <SiblingIndex value="-1" />
+    <Flags>RotX, RotY, RotZ, TransX, TransY, TransZ</Flags>
+    <Translation x="0.5" y="0" z="0" />
+    <Rotation x="0" y="0" z="0" w="1" />
+    <Scale x="-1" y="1" z="1" />
+    <TransformUnk x="0" y="0" z="0" w="0" />
+   </Item>
+  </Bones>
+ </Skeleton>
+ <DrawableModelsHigh>
+   <Item>
+    <RenderMask value="255" />
+    <Flags value="0" />
+    <HasSkin value="0" />
+    <BoneIndex value="0" />
+    <Unknown1 value="0" />
+    <Geometries>
+    <Item>
+     <ShaderIndex value="0" />
+     <BoundingBoxMin x="-0.25" y="-0.5" z="0" w="0" />
+     <BoundingBoxMax x="0.25" y="0.5" z="0.25" w="0" />
+     <VertexBuffer>
+      <Flags value="0" />
+      <Layout type="GTAV1">
+       <Position />
+       <Normal />
+       <Colour0 />
+       <TexCoord0 />
+      </Layout>
+      <Data>
+       0.25 -0.5 0   1 0 0   255 255 255 255   0 0
+       0.25 0.5 0   1 0 0   255 255 255 255   1 0
+       0.25 0.5 0.25   1 0 0   255 255 255 255   1 1
+       0.25 -0.5 0.25   1 0 0   255 255 255 255   0 1
+       -0.25 -0.5 0   -1 0 0   255 255 255 255   0 0
+       -0.25 -0.5 0.25   -1 0 0   255 255 255 255   1 0
+       -0.25 0.5 0.25   -1 0 0   255 255 255 255   1 1
+       -0.25 0.5 0   -1 0 0   255 255 255 255   0 1
+       -0.25 0.5 0   0 1 0   255 255 255 255   0 0
+       -0.25 0.5 0.25   0 1 0   255 255 255 255   1 0
+       0.25 0.5 0.25   0 1 0   255 255 255 255   1 1
+       0.25 0.5 0   0 1 0   255 255 255 255   0 1
+       -0.25 -0.5 0   0 -1 0   255 255 255 255   0 0
+       0.25 -0.5 0   0 -1 0   255 255 255 255   1 0
+       0.25 -0.5 0.25   0 -1 0   255 255 255 255   1 1
+       -0.25 -0.5 0.25   0 -1 0   255 255 255 255   0 1
+       -0.25 -0.5 0.25   0 0 1   255 255 255 255   0 0
+       0.25 -0.5 0.25   0 0 1   255 255 255 255   1 0
+       0.25 0.5 0.25   0 0 1   255 255 255 255   1 1
+       -0.25 0.5 0.25   0 0 1   255 255 255 255   0 1
+       -0.25 -0.5 0   0 0 -1   255 255 255 255   0 0
+       -0.25 0.5 0   0 0 -1   255 255 255 255   1 0
+       0.25 0.5 0   0 0 -1   255 255 255 255   1 1
+       0.25 -0.5 0   0 0 -1   255 255 255 255   0 1
+      </Data>
+     </VertexBuffer>
+     <IndexBuffer>
+      <Data>
+       0 1 2 0 2 3 4 5 6 4 6 7
+       8 9 10 8 10 11 12 13 14 12 14 15
+       16 17 18 16 18 19 20 21 22 20 22 23
+      </Data>
+     </IndexBuffer>
+    </Item>
+    </Geometries>
+   </Item>
+   <Item>
+    <RenderMask value="255" />
+    <Flags value="0" />
+    <HasSkin value="0" />
+    <BoneIndex value="2" />
+    <Unknown1 value="0" />
+    <Geometries>
+    <Item>
+     <ShaderIndex value="0" />
+     <BoundingBoxMin x="0" y="0" z="0" w="0" />
+     <BoundingBoxMax x="0.5" y="0.25" z="0.125" w="0" />
+     <VertexBuffer>
+      <Flags value="0" />
+      <Layout type="GTAV1">
+       <Position />
+       <Normal />
+       <Colour0 />
+       <TexCoord0 />
+      </Layout>
+      <Data>
+       0.5 0 0   1 0 0   255 255 255 255   0 0
+       0.5 0.25 0   1 0 0   255 255 255 255   1 0
+       0.5 0.25 0.125   1 0 0   255 255 255 255   1 1
+       0.5 0 0.125   1 0 0   255 255 255 255   0 1
+       0 0 0   -1 0 0   255 255 255 255   0 0
+       0 0 0.125   -1 0 0   255 255 255 255   1 0
+       0 0.25 0.125   -1 0 0   255 255 255 255   1 1
+       0 0.25 0   -1 0 0   255 255 255 255   0 1
+       0 0.25 0   0 1 0   255 255 255 255   0 0
+       0 0.25 0.125   0 1 0   255 255 255 255   1 0
+       0.5 0.25 0.125   0 1 0   255 255 255 255   1 1
+       0.5 0.25 0   0 1 0   255 255 255 255   0 1
+       0 0 0   0 -1 0   255 255 255 255   0 0
+       0.5 0 0   0 -1 0   255 255 255 255   1 0
+       0.5 0 0.125   0 -1 0   255 255 255 255   1 1
+       0 0 0.125   0 -1 0   255 255 255 255   0 1
+       0 0 0.125   0 0 1   255 255 255 255   0 0
+       0.5 0 0.125   0 0 1   255 255 255 255   1 0
+       0.5 0.25 0.125   0 0 1   255 255 255 255   1 1
+       0 0.25 0.125   0 0 1   255 255 255 255   0 1
+       0 0 0   0 0 -1   255 255 255 255   0 0
+       0 0.25 0   0 0 -1   255 255 255 255   1 0
+       0.5 0.25 0   0 0 -1   255 255 255 255   1 1
+       0.5 0 0   0 0 -1   255 255 255 255   0 1
+      </Data>
+     </VertexBuffer>
+     <IndexBuffer>
+      <Data>
+       0 1 2 0 2 3 4 5 6 4 6 7
+       8 9 10 8 10 11 12 13 14 12 14 15
+       16 17 18 16 18 19 20 21 22 20 22 23
+      </Data>
+     </IndexBuffer>
+    </Item>
+    </Geometries>
+   </Item>
+   <Item>
+    <RenderMask value="255" />
+    <Flags value="0" />
+    <HasSkin value="1" />
+    <BoneIndex value="1" />
+    <Unknown1 value="0" />
+    <Geometries>
+    <Item>
+     <ShaderIndex value="0" />
+     <BoundingBoxMin x="1" y="1" z="1" w="0" />
+     <BoundingBoxMax x="1.25" y="1.25" z="1.25" w="0" />
+     <VertexBuffer>
+      <Flags value="0" />
+      <Layout type="GTAV1">
+       <Position />
+       <BlendWeights />
+       <BlendIndices />
+       <Normal />
+       <Colour0 />
+       <TexCoord0 />
+      </Layout>
+      <Data>
+       1.25 1 1   255 0 0 0   1 0 0 0   1 0 0   255 255 255 255   0 0
+       1.25 1.25 1   255 0 0 0   1 0 0 0   1 0 0   255 255 255 255   1 0
+       1.25 1.25 1.25   255 0 0 0   1 0 0 0   1 0 0   255 255 255 255   1 1
+       1.25 1 1.25   255 0 0 0   1 0 0 0   1 0 0   255 255 255 255   0 1
+       1 1 1   255 0 0 0   1 0 0 0   -1 0 0   255 255 255 255   0 0
+       1 1 1.25   255 0 0 0   1 0 0 0   -1 0 0   255 255 255 255   1 0
+       1 1.25 1.25   255 0 0 0   1 0 0 0   -1 0 0   255 255 255 255   1 1
+       1 1.25 1   255 0 0 0   1 0 0 0   -1 0 0   255 255 255 255   0 1
+       1 1.25 1   255 0 0 0   1 0 0 0   0 1 0   255 255 255 255   0 0
+       1 1.25 1.25   255 0 0 0   1 0 0 0   0 1 0   255 255 255 255   1 0
+       1.25 1.25 1.25   255 0 0 0   1 0 0 0   0 1 0   255 255 255 255   1 1
+       1.25 1.25 1   255 0 0 0   1 0 0 0   0 1 0   255 255 255 255   0 1
+       1 1 1   255 0 0 0   1 0 0 0   0 -1 0   255 255 255 255   0 0
+       1.25 1 1   255 0 0 0   1 0 0 0   0 -1 0   255 255 255 255   1 0
+       1.25 1 1.25   255 0 0 0   1 0 0 0   0 -1 0   255 255 255 255   1 1
+       1 1 1.25   255 0 0 0   1 0 0 0   0 -1 0   255 255 255 255   0 1
+       1 1 1.25   255 0 0 0   1 0 0 0   0 0 1   255 255 255 255   0 0
+       1.25 1 1.25   255 0 0 0   1 0 0 0   0 0 1   255 255 255 255   1 0
+       1.25 1.25 1.25   255 0 0 0   1 0 0 0   0 0 1   255 255 255 255   1 1
+       1 1.25 1.25   255 0 0 0   1 0 0 0   0 0 1   255 255 255 255   0 1
+       1 1 1   255 0 0 0   1 0 0 0   0 0 -1   255 255 255 255   0 0
+       1 1.25 1   255 0 0 0   1 0 0 0   0 0 -1   255 255 255 255   1 0
+       1.25 1.25 1   255 0 0 0   1 0 0 0   0 0 -1   255 255 255 255   1 1
+       1.25 1 1   255 0 0 0   1 0 0 0   0 0 -1   255 255 255 255   0 1
+      </Data>
+     </VertexBuffer>
+     <IndexBuffer>
+      <Data>
+       0 1 2 0 2 3 4 5 6 4 6 7
+       8 9 10 8 10 11 12 13 14 12 14 15
+       16 17 18 16 18 19 20 21 22 20 22 23
+      </Data>
+     </IndexBuffer>
+    </Item>
+    </Geometries>
+   </Item>
+   <Item>
+    <RenderMask value="255" />
+    <Flags value="0" />
+    <HasSkin value="0" />
+    <BoneIndex value="3" />
+    <Unknown1 value="0" />
+    <Geometries>
+    <Item>
+     <ShaderIndex value="0" />
+     <BoundingBoxMin x="0" y="0.25" z="0" w="0" />
+     <BoundingBoxMax x="0.5" y="0.5" z="0.25" w="0" />
+     <VertexBuffer>
+      <Flags value="0" />
+      <Layout type="GTAV1">
+       <Position />
+       <Normal />
+       <Colour0 />
+       <TexCoord0 />
+      </Layout>
+      <Data>
+       0.5 0.25 0   1 0 0   255 255 255 255   0 0
+       0.5 0.5 0   1 0 0   255 255 255 255   1 0
+       0.5 0.5 0.25   1 0 0   255 255 255 255   1 1
+       0.5 0.25 0.25   1 0 0   255 255 255 255   0 1
+       0 0.25 0   -1 0 0   255 255 255 255   0 0
+       0 0.25 0.25   -1 0 0   255 255 255 255   1 0
+       0 0.5 0.25   -1 0 0   255 255 255 255   1 1
+       0 0.5 0   -1 0 0   255 255 255 255   0 1
+       0 0.5 0   0 1 0   255 255 255 255   0 0
+       0 0.5 0.25   0 1 0   255 255 255 255   1 0
+       0.5 0.5 0.25   0 1 0   255 255 255 255   1 1
+       0.5 0.5 0   0 1 0   255 255 255 255   0 1
+       0 0.25 0   0 -1 0   255 255 255 255   0 0
+       0.5 0.25 0   0 -1 0   255 255 255 255   1 0
+       0.5 0.25 0.25   0 -1 0   255 255 255 255   1 1
+       0 0.25 0.25   0 -1 0   255 255 255 255   0 1
+       0 0.25 0.25   0 0 1   255 255 255 255   0 0
+       0.5 0.25 0.25   0 0 1   255 255 255 255   1 0
+       0.5 0.5 0.25   0 0 1   255 255 255 255   1 1
+       0 0.5 0.25   0 0 1   255 255 255 255   0 1
+       0 0.25 0   0 0 -1   255 255 255 255   0 0
+       0 0.5 0   0 0 -1   255 255 255 255   1 0
+       0.5 0.5 0   0 0 -1   255 255 255 255   1 1
+       0.5 0.25 0   0 0 -1   255 255 255 255   0 1
+      </Data>
+     </VertexBuffer>
+     <IndexBuffer>
+      <Data>
+       0 1 2 0 2 3 4 5 6 4 6 7
+       8 9 10 8 10 11 12 13 14 12 14 15
+       16 17 18 16 18 19 20 21 22 20 22 23
+      </Data>
+     </IndexBuffer>
+    </Item>
+    </Geometries>
+   </Item>
+ </DrawableModelsHigh>
+</Drawable>

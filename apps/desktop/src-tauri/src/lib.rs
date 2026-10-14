@@ -17,7 +17,7 @@ use vfxforge_native::fsx::{atomic_write, import_asset as store_asset};
 use vfxforge_native::jobs::CancelToken;
 use vfxforge_native::probe::{probe, MediaInfo};
 use vfxforge_native::project::{clear_autosaves, load_project as load_project_dir, save_project as save_project_dir, write_autosave, LoadedProject};
-use vfxforge_native::service::{self, ConvertArgs, FoundAutosave, ProjectSummary};
+use vfxforge_native::service::{self, ConvertArgs, FoundAutosave, ProjectSummary, YdrConversion};
 use vfxforge_native::sniff::Category;
 use vfxforge_native::tools::ffmpeg_version;
 use vfxforge_native::wire;
@@ -157,16 +157,29 @@ struct ImportResult {
     deduplicated: bool,
     /// Probed with ffprobe for video and images; `None` for models (and images when ffprobe is absent).
     info: Option<MediaInfo>,
+    /// `"ydr"` when the stored asset is a GLB the converter bridge made from a GTA V drawable; absent for every other import.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    converted_from: Option<&'static str>,
+    /// What the converter did (LOD, counts, its own notes); present exactly when `converted_from` is.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    conversion: Option<YdrConversion>,
 }
 
+/// A `.ydr` is not stored as is: the bridge converts it to a GLB and THAT is the asset (kind `glb`, category `model`).
+/// Everything else is stored by content, exactly as before.
 #[tauri::command]
 async fn import_asset(state: State<'_, AppState>, project_id: String, source: String) -> Result<ImportResult> {
     let inner = state.0.clone();
     blocking(move || {
         let dir = service::project_dir(&inner.projects_root, &project_id)?;
         let src = PathBuf::from(&source);
+        if service::is_ydr_path(&src) {
+            let done = service::import_ydr(&inner.bridge_cfg(), &inner.scratch, &dir, &src, &CancelToken::new())?;
+            let a = done.asset;
+            return Ok(ImportResult { rel_path: a.rel_path, sha256: a.sha256, bytes: a.bytes, kind: a.kind, category: a.category, mime: a.mime, deduplicated: a.deduplicated, info: None, converted_from: Some("ydr"), conversion: Some(done.conversion) });
+        }
         // a video cannot be imported without ffprobe: say so before copying anything
-        let (_, sniffed, _) = vfxforge_native::probe::identify(&src)?;
+        let (_, sniffed, _) = vfxforge_native::probe::identify(&src).map_err(|e| service::explain_unrecognised(&src, e))?;
         let tools = inner.media_tools();
         if sniffed.kind.category() == Category::Video {
             tools.as_ref().map_err(|e| Error::ToolMissing { tool: "ffprobe".into(), hint: e.to_string() })?;
@@ -176,7 +189,7 @@ async fn import_asset(state: State<'_, AppState>, project_id: String, source: St
             (Ok(t), Category::Video | Category::Image) => probe(&t.ffprobe, &dir.join(&stored.rel_path)).ok(),
             _ => None,
         };
-        Ok(ImportResult { rel_path: stored.rel_path, sha256: stored.sha256, bytes: stored.bytes, kind: stored.kind, category: stored.category, mime: stored.mime, deduplicated: stored.deduplicated, info })
+        Ok(ImportResult { rel_path: stored.rel_path, sha256: stored.sha256, bytes: stored.bytes, kind: stored.kind, category: stored.category, mime: stored.mime, deduplicated: stored.deduplicated, info, converted_from: None, conversion: None })
     })
     .await
 }
@@ -619,6 +632,9 @@ mod ipc_tests {
         assert!(rel.starts_with("assets/") && rel.ends_with(".png"), "{rel}");
         assert_eq!(r["sha256"].as_str().unwrap().len(), 64);
         assert_eq!(r["deduplicated"], false);
+        // only a converted drawable carries the conversion fields; every other import has exactly the usual ones
+        assert!(r.get("convertedFrom").is_none() && r.get("conversion").is_none(), "{r}");
+        assert_eq!(sorted_keys(&r), ["bytes", "category", "deduplicated", "info", "kind", "mime", "relPath", "sha256"]);
         let again = h.json("import_asset", json!({ "projectId": "proj_i", "source": src.to_string_lossy() }));
         assert_eq!(again["deduplicated"], true);
 
@@ -702,6 +718,143 @@ mod ipc_tests {
         assert_eq!(meta["roundTripOk"], true, "{meta}");
         assert_eq!(&blobs[0][..4], b"RSC7");
         assert!(meta["resourceVersion"].as_i64().unwrap() > 0);
+    }
+
+    fn sorted_keys(v: &Value) -> Vec<&str> {
+        let mut k: Vec<&str> = v.as_object().expect("an object").keys().map(String::as_str).collect();
+        k.sort_unstable();
+        k
+    }
+
+    /// The bridge's own synthetic drawables, copied into `native/vfxforge-native/tests/fixtures`.
+    fn drawable_fixture(h: &Harness, fixture: &str, as_name: &str) -> PathBuf {
+        let from = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../native/vfxforge-native/tests/fixtures").join(fixture);
+        let to = h.dir.path().join(as_name);
+        std::fs::write(&to, std::fs::read(&from).unwrap_or_else(|e| panic!("fixture {}: {e}", from.display()))).unwrap();
+        to
+    }
+
+    fn scratch_entries(h: &Harness) -> usize {
+        std::fs::read_dir(h.dir.path().join("scratch")).map(|d| d.count()).unwrap_or(0)
+    }
+
+    #[test]
+    fn a_drawable_import_without_a_bridge_is_an_actionable_error_with_a_stable_code() {
+        let h = harness(ToolPaths::default());
+        let ydr = drawable_fixture(&h, "cube_pnct.ydr", "w_ar_k2light.ydr");
+        let e = h.err("import_asset", json!({ "projectId": "proj_y", "source": ydr.to_string_lossy() }));
+        assert_eq!(e["code"], "tool_missing", "{e}");
+        let msg = e["message"].as_str().unwrap();
+        for needle in ["Settings > Tools", "docs/YPT_BRIDGE.md", "Exporting the model as .glb works without it"] {
+            assert!(msg.contains(needle), "{needle:?} missing from: {msg}");
+        }
+        assert!(!h.dir.path().join("projects/proj_y").exists(), "a failed import must not create the project folder");
+        assert_eq!(scratch_entries(&h), 0);
+
+        // the file is judged before the bridge is: these are about the file, not the tool
+        let text = h.dir.path().join("fake.ydr");
+        std::fs::write(&text, b"this is text, not a GTA V resource").unwrap();
+        let e = h.err("import_asset", json!({ "projectId": "proj_y", "source": text.to_string_lossy() }));
+        assert_eq!(e["code"], "unsupported_format", "{e}");
+        assert!(e["message"].as_str().unwrap().contains("not a GTA V resource file"), "{e}");
+        let e = h.err("import_asset", json!({ "projectId": "proj_y", "source": "relative/model.ydr" }));
+        assert_eq!(e["code"], "unsafe_path");
+        let e = h.err("import_asset", json!({ "projectId": "proj_y", "source": h.dir.path().join("gone.ydr").to_string_lossy() }));
+        assert_eq!(e["code"], "not_found");
+        let e = h.err("import_asset", json!({ "projectId": "../escape", "source": ydr.to_string_lossy() }));
+        assert_eq!(e["code"], "invalid_param");
+
+        // a real drawable under another name is not a drawable import, and says why it was not imported
+        for name in ["w_ar_k2light.glb", "w_ar_k2light.png", "w_ar_k2light.dat"] {
+            let renamed = drawable_fixture(&h, "cube_pnct.ydr", name);
+            let e = h.err("import_asset", json!({ "projectId": "proj_y", "source": renamed.to_string_lossy() }));
+            assert_eq!(e["code"], "unsupported_format", "{name}: {e}");
+            assert!(e["message"].as_str().unwrap().contains("not imported as a drawable"), "{name}: {e}");
+        }
+        assert!(!h.dir.path().join("projects/proj_y").exists());
+    }
+
+    #[test]
+    fn a_model_that_needs_no_conversion_is_imported_as_before() {
+        let h = harness(ToolPaths::default());
+        let glb = h.dir.path().join("weapon.glb");
+        let mut bytes = b"glTF\x02\x00\x00\x00".to_vec();
+        bytes.extend_from_slice(&[0u8; 64]);
+        std::fs::write(&glb, &bytes).unwrap();
+        let r = h.json("import_asset", json!({ "projectId": "proj_m", "source": glb.to_string_lossy() }));
+        assert_eq!((r["kind"].as_str(), r["category"].as_str(), r["mime"].as_str()), (Some("glb"), Some("model"), Some("model/gltf-binary")));
+        assert!(r["info"].is_null());
+        assert!(r.get("convertedFrom").is_none() && r.get("conversion").is_none(), "{r}");
+        assert_eq!(sorted_keys(&r), ["bytes", "category", "deduplicated", "info", "kind", "mime", "relPath", "sha256"]);
+    }
+
+    #[test]
+    fn a_drawable_is_converted_through_ipc_and_reported_exactly_per_the_contract() {
+        let Some(dll) = bridge_dll() else {
+            eprintln!("SKIPPED: converter bridge not built");
+            return;
+        };
+        let h = harness(ToolPaths { dll: Some(dll), ..Default::default() });
+        if h.json("tool_status", json!({}))["bridge"]["available"] != true {
+            eprintln!("SKIPPED: dotnet/bridge not usable");
+            return;
+        }
+        let ydr = drawable_fixture(&h, "cube_pnct.ydr", "w_ar_k2light.ydr");
+        let before = std::fs::read(&ydr).unwrap();
+        let r = h.json("import_asset", json!({ "projectId": "proj_y", "source": ydr.to_string_lossy() }));
+
+        // the usual ImportResult of the stored GLB, plus exactly the two conversion fields
+        assert_eq!(sorted_keys(&r), ["bytes", "category", "conversion", "convertedFrom", "deduplicated", "info", "kind", "mime", "relPath", "sha256"], "{r}");
+        assert_eq!((r["kind"].as_str(), r["category"].as_str(), r["mime"].as_str()), (Some("glb"), Some("model"), Some("model/gltf-binary")));
+        let sha = r["sha256"].as_str().unwrap();
+        assert_eq!(sha.len(), 64);
+        assert_eq!(r["relPath"], format!("assets/{sha}.glb"));
+        assert_eq!(r["deduplicated"], false);
+        assert!(r["info"].is_null());
+        assert_eq!(r["convertedFrom"], "ydr");
+        assert_eq!(sorted_keys(&r["conversion"]), ["geometries", "lod", "models", "triangles", "vertices", "warnings"]);
+        assert_eq!(r["conversion"], json!({ "lod": "high", "models": 1, "geometries": 1, "vertices": 24, "triangles": 12, "warnings": [] }));
+
+        // the stored asset really is that GLB, readable like any other asset
+        let rel = r["relPath"].as_str().unwrap();
+        let glb = raw(h.call("read_asset", json!({ "projectId": "proj_y", "relPath": rel })).unwrap());
+        assert_eq!(&glb[..4], b"glTF");
+        assert_eq!(glb.len() as u64, r["bytes"].as_u64().unwrap());
+        assert_eq!(vfxforge_native::fsx::sha256_hex(&glb), sha);
+
+        // converting it again deduplicates, and the .ydr and the scratch folder are as they were
+        let again = h.json("import_asset", json!({ "projectId": "proj_y", "source": ydr.to_string_lossy() }));
+        assert_eq!(again["deduplicated"], true);
+        assert_eq!(again["relPath"], r["relPath"]);
+        assert_eq!(std::fs::read(&ydr).unwrap(), before);
+        assert_eq!(scratch_entries(&h), 0);
+
+        // a converted model is an ordinary GLB asset: importing those bytes as a plain .glb is the same asset, with no conversion fields
+        let plain = h.dir.path().join("exported.glb");
+        std::fs::write(&plain, &glb).unwrap();
+        let p = h.json("import_asset", json!({ "projectId": "proj_y", "source": plain.to_string_lossy() }));
+        assert_eq!(p["relPath"], r["relPath"]);
+        assert_eq!(p["deduplicated"], true);
+        assert!(p.get("convertedFrom").is_none() && p.get("conversion").is_none(), "{p}");
+
+        // the converter's notes arrive as strings in conversion.warnings
+        let multi = drawable_fixture(&h, "multi_lod.ydr", "multi.YDR");
+        let m = h.json("import_asset", json!({ "projectId": "proj_y", "source": multi.to_string_lossy() }));
+        assert_eq!(m["conversion"]["lod"], "high");
+        assert_eq!((m["conversion"]["models"].as_u64(), m["conversion"]["geometries"].as_u64(), m["conversion"]["vertices"].as_u64(), m["conversion"]["triangles"].as_u64()), (Some(2), Some(3), Some(44), Some(22)));
+        let warnings = m["conversion"]["warnings"].as_array().unwrap();
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].as_str().unwrap().contains("no normals"), "{m}");
+
+        // the converter's refusals reach the webview with its message and a stable code
+        let ypt_like = h.dir.path().join("effect.ydr");
+        let mut not_a_drawable = std::fs::read(&ydr).unwrap();
+        not_a_drawable.truncate(not_a_drawable.len() / 2);
+        std::fs::write(&ypt_like, &not_a_drawable).unwrap();
+        let e = h.err("import_asset", json!({ "projectId": "proj_y", "source": ypt_like.to_string_lossy() }));
+        assert_eq!(e["code"], "tool_failed", "{e}");
+        assert!(e["message"].as_str().unwrap().contains("parse_failed"), "{e}");
+        assert_eq!(scratch_entries(&h), 0);
     }
 
     #[test]

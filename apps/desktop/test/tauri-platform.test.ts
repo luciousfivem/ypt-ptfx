@@ -10,6 +10,7 @@ const fake = vi.hoisted(() => ({
   calls: [] as Array<{ cmd: string; args: unknown }>,
   dialogSave: null as string | null,
   dialogOpen: null as string | string[] | null,
+  dialogOpenOptions: null as Record<string, unknown> | null,
 }));
 
 vi.mock('@tauri-apps/api/core', () => ({
@@ -24,9 +25,16 @@ vi.mock('@tauri-apps/api/core', () => ({
   },
 }));
 vi.mock('@tauri-apps/api/webview', () => ({ getCurrentWebview: () => ({ onDragDropEvent: async () => () => undefined }) }));
-vi.mock('@tauri-apps/plugin-dialog', () => ({ save: async () => fake.dialogSave, open: async () => fake.dialogOpen }));
+vi.mock('@tauri-apps/plugin-dialog', () => ({
+  save: async () => fake.dialogSave,
+  open: async (o: Record<string, unknown>) => {
+    fake.dialogOpenOptions = o;
+    return fake.dialogOpen;
+  },
+}));
 
-import { createTauriPlatform, toError } from '../src/platform/tauri';
+import { importPicker, modelPicker } from '../src/lib/model-files';
+import { conversionNote, createTauriPlatform, dialogFilters, toError } from '../src/platform/tauri';
 
 const toolStatus = (over: { ffmpeg?: boolean; bridge?: boolean } = {}) => ({
   ffmpeg: { available: over.ffmpeg ?? true, path: '/usr/bin/ffmpeg', version: 'ffmpeg 7', detail: 'ready' },
@@ -48,6 +56,7 @@ beforeEach(() => {
   fake.calls.length = 0;
   fake.dialogSave = null;
   fake.dialogOpen = null;
+  fake.dialogOpenOptions = null;
   on('tool_status', () => toolStatus());
 });
 
@@ -106,6 +115,74 @@ describe('importing', () => {
 
   it('refuses browser File objects: the desktop app imports by path', async () => {
     await expect((await make()).importAsset(new File([new Uint8Array(4)], 'a.png'))).rejects.toThrow(/by file path/);
+  });
+
+  describe('a .ydr drawable converted to a GLB by the core', () => {
+    const sha = 'c'.repeat(64);
+    const converted = (over: Record<string, unknown> = {}) => ({
+      relPath: `assets/${sha}.glb`,
+      sha256: sha,
+      bytes: 2264,
+      kind: 'glb',
+      category: 'model',
+      mime: 'model/gltf-binary',
+      deduplicated: false,
+      info: null,
+      convertedFrom: 'ydr',
+      conversion: { lod: 'high', models: 2, geometries: 3, vertices: 44, triangles: 22, warnings: ['model_1 geometry 0 has no normals'] },
+      ...over,
+    });
+
+    it('keeps the source name but points at the stored GLB, and reports the conversion once', async () => {
+      on('import_asset', (a) => {
+        expect(a).toEqual({ projectId: 'proj_test', source: 'C:\\mods\\w_ar_k2light.ydr' });
+        return converted();
+      });
+      const notes: string[] = [];
+      const asset = await (await make()).importAsset('C:\\mods\\w_ar_k2light.ydr', undefined, (m) => notes.push(m));
+      expect(asset).toMatchObject({ kind: 'model', name: 'w_ar_k2light.ydr', file: `assets/${sha}.glb`, sha256: sha, mime: 'model/gltf-binary', bytes: 2264, info: null });
+      expect(notes).toHaveLength(1);
+      // short enough to read before the toast goes (singular "warning" for one)
+      expect(notes[0]).toBe('Converted from .ydr (high level of detail, 2 models, 22 triangles): geometry only. 1 converter warning in the 3D model panel.');
+      // nothing else was asked of the core: no ffprobe pass, no second read
+      expect(fake.calls.filter((c) => c.cmd !== 'tool_status').map((c) => c.cmd)).toEqual(['import_asset']);
+    });
+
+    it('works without a note callback', async () => {
+      on('import_asset', () => converted());
+      await expect((await make()).importAsset('/x/w.ydr')).resolves.toMatchObject({ name: 'w.ydr', kind: 'model' });
+    });
+
+    it('an ordinary import never produces a note, even from an old core that sends no conversion fields', async () => {
+      on('import_asset', () => ({ relPath: `assets/${sha}.glb`, sha256: sha, bytes: 10, kind: 'glb', category: 'model', mime: 'model/gltf-binary', deduplicated: false, info: null }));
+      const notes: string[] = [];
+      const asset = await (await make()).importAsset('/x/box.glb', undefined, (m) => notes.push(m));
+      expect(asset.name).toBe('box.glb');
+      expect(notes).toEqual([]);
+    });
+
+    it('core errors for a .ydr keep their text and code (bridge missing, too old, not a drawable)', async () => {
+      for (const [code, message] of [
+        ['tool_missing', 'The CodeWalker bridge is not configured. Set it up in Settings > Tools (docs/YPT_BRIDGE.md); exporting the model as .glb works without it.'],
+        ['invalid_param', '"x.ydr" is not a GTA V resource file.'],
+      ] as const) {
+        on('import_asset', () => {
+          throw { code, message };
+        });
+        await expect((await make()).importAsset('/x/x.ydr')).rejects.toMatchObject({ message, code });
+      }
+    });
+
+    it('conversionNote validates what the core sent', () => {
+      expect(conversionNote({})).toBeNull();
+      expect(conversionNote({ convertedFrom: undefined, conversion: { lod: 'high' } as never })).toBeNull();
+      expect(conversionNote({ convertedFrom: 'ydr' })).toBe('Converted from .ydr: geometry only.');
+      const hostile = conversionNote({ convertedFrom: 'ydr', conversion: { lod: '<b>x</b>', models: -3, triangles: 'many', warnings: 'none' } as never });
+      expect(hostile).toBe('Converted from .ydr: geometry only.');
+      expect(conversionNote({ convertedFrom: 'ydr', conversion: { lod: 'med', models: 1, geometries: 1, vertices: 24, triangles: 12, warnings: ['a', 'b'] } })).toBe(
+        'Converted from .ydr (med level of detail, 1 model, 12 triangles): geometry only. 2 converter warnings in the 3D model panel.',
+      );
+    });
   });
 });
 
@@ -263,5 +340,54 @@ describe('files', () => {
     expect(await p.pickFiles({ accept: ['.png'], multiple: true })).toEqual(['/a.png', '/b.png']);
     fake.dialogOpen = null;
     expect(await p.pickFiles({ accept: ['.png'] })).toEqual([]);
+  });
+
+  it('without filters the dialog gets one "Supported files" entry from the accept list, as before', async () => {
+    const p = await make();
+    await p.pickFiles({ accept: ['.png', 'jpg', '../evil', '.ypt.xml', 'a b'], title: 'T', multiple: true });
+    expect(fake.dialogOpenOptions).toEqual({ multiple: true, title: 'T', filters: [{ name: 'Supported files', extensions: ['png', 'jpg', 'ypt.xml'] }] });
+    await p.pickFiles({ accept: [] });
+    expect(fake.dialogOpenOptions!.filters).toBeUndefined();
+  });
+
+  it('the weapon-model picker shows three separate file types, everything first', async () => {
+    const p = await make();
+    const { accept, filters } = modelPicker(p.kind);
+    await p.pickFiles({ accept, filters, title: 'Import a weapon model' });
+    expect(fake.dialogOpenOptions).toEqual({
+      multiple: false,
+      title: 'Import a weapon model',
+      filters: [
+        { name: 'Supported files', extensions: ['glb', 'gltf', 'obj', 'fbx', 'ydr'] },
+        { name: '3D models (glb, gltf, obj, fbx)', extensions: ['glb', 'gltf', 'obj', 'fbx'] },
+        { name: 'GTA V drawable (ydr)', extensions: ['ydr'] },
+      ],
+    });
+  });
+
+  it('the generic Import picker lists media and models in the first entry, then the same two groups', async () => {
+    const p = await make();
+    const { accept, filters } = importPicker(p.kind);
+    await p.pickFiles({ accept, filters, multiple: true });
+    const shown = fake.dialogOpenOptions!.filters as Array<{ name: string; extensions: string[] }>;
+    expect(shown.map((f) => f.name)).toEqual(['Supported files', '3D models (glb, gltf, obj, fbx)', 'GTA V drawable (ydr)']);
+    expect(shown[0]!.extensions).toEqual(expect.arrayContaining(['mp4', 'webm', 'png', 'webp', 'glb', 'ydr']));
+  });
+
+  it('filter extensions are sanitised, entries left empty are dropped, and nothing usable falls back to accept', () => {
+    expect(
+      dialogFilters(['.glb'], [
+        { name: ' Models ', extensions: ['.glb', 'gl b', '../x', 'obj'] },
+        { name: 'x'.repeat(200), extensions: ['fbx'] },
+        { name: 'Nothing usable', extensions: ['*', '', '.'] },
+      ]),
+    ).toEqual([
+      { name: 'Models', extensions: ['glb', 'obj'] },
+      { name: 'x'.repeat(80), extensions: ['fbx'] },
+    ]);
+    expect(dialogFilters(['.glb', '.ydr'], [{ name: 'Bad', extensions: ['*'] }])).toEqual([{ name: 'Supported files', extensions: ['glb', 'ydr'] }]);
+    expect(dialogFilters([], [])).toBeUndefined();
+    expect(dialogFilters([], undefined)).toBeUndefined();
+    expect(dialogFilters([], [{ name: '', extensions: ['ydr'] }])).toEqual([{ name: 'Files', extensions: ['ydr'] }]);
   });
 });

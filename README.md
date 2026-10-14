@@ -12,7 +12,8 @@ ready-to-run FiveM resource with Lua.
 
 ## What it does
 
-* **Import** MP4 / MOV / WebM / GIF / WebP / PNG / JPG (identified by contents, never modified) and 3D models (GLB, glTF, OBJ, FBX).
+* **Import** MP4 / MOV / WebM / GIF / WebP / PNG / JPG (identified by contents, never modified) and 3D models (GLB, glTF, OBJ, FBX,
+  and on the desktop app GTA V **.ydr** drawables, converted to GLB through the CodeWalker bridge: geometry only).
 * **Spritesheets**: FFmpeg frame extraction, black / white / chroma keying with despill, colour, glow, motion blur, auto-crop,
   reverse / ping-pong, frame list editing, procedural animation of a single image, grid/padding/extrude atlas, **PNG and DDS (BC1/BC3/BGRA8)**.
 * **Particle editor**: emission, shapes, physics, colour/size/alpha curves, flipbook animation, triggers; 30 procedural presets
@@ -45,7 +46,8 @@ pnpm --filter @vfxforge/desktop dev          # UI in the browser (no FFmpeg / no
 pnpm --filter @vfxforge/desktop tauri dev    # the full desktop app (FFmpeg + converter)
 ```
 
-For binary `.ypt` output build the converter once against your own CodeWalker checkout — [`docs/YPT_BRIDGE.md`](docs/YPT_BRIDGE.md).
+For binary `.ypt` output and `.ydr` model import build the converter once against your own CodeWalker checkout —
+[`docs/YPT_BRIDGE.md`](docs/YPT_BRIDGE.md).
 FFmpeg is found via Settings → Tools, next to the app, or `PATH`.
 
 ## Documentation
@@ -55,7 +57,7 @@ FFmpeg is found via Settings → Tools, next to the app, or `PATH`.
 | [User guide](docs/USER_GUIDE.md) | workflow, controls, troubleshooting |
 | [Architecture](docs/ARCHITECTURE.md) | pipeline, packages, security, where honesty is enforced |
 | [Status](docs/STATUS.md) | verified vs unverified, limitations, test inventory |
-| [YPT bridge](docs/YPT_BRIDGE.md) | building the CodeWalker converter |
+| [YPT bridge](docs/YPT_BRIDGE.md) | building the CodeWalker converter (binary `.ypt`, `.ydr` import) |
 | [In-game checklist](docs/FIVEM_TEST_CHECKLIST.md) | what only the game can confirm |
 | [Development](docs/DEVELOPMENT.md) | build, test, package |
 | [YPT format notes](docs/research/ypt-format.md) | researched facts and their sources |

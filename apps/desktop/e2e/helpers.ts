@@ -87,3 +87,6 @@ export function makeGlb(): Buffer {
 }
 
 export const readFixture = (name: string) => readFileSync(fixture(name));
+
+/** Golden GLBs written by the bridge's `ydr2glb` (copied byte for byte into test/fixtures; see the README there). */
+export const ydrGlb = (name: string) => join(dirname(fileURLToPath(import.meta.url)), '..', 'test', 'fixtures', `${name}.glb`);

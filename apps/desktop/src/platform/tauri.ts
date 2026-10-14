@@ -14,7 +14,7 @@ import type { ConvertResult, ConvertService } from '@vfxforge/export';
 import { decodePng, sha256Hex, sniffBytes, type RgbaImage } from '@vfxforge/media';
 import { generateSpriteFrames } from '@vfxforge/particles';
 import { unzipSync, zipSync } from 'fflate';
-import type { ConverterStatus, ExtractOptions, FrameService, Platform, PlatformFeatures, ProjectStore, ProjectSummary, ToolPaths, ToolsApi, ToolsStatus } from './types';
+import type { ConverterStatus, ExtractOptions, FrameService, PickFilter, Platform, PlatformFeatures, ProjectStore, ProjectSummary, ToolPaths, ToolsApi, ToolsStatus } from './types';
 import { packWire, unpackWire } from './wire';
 import { bitmapFrom, extractAnimated, hasTransparency, imageDataOf, targetSize } from './web-media';
 
@@ -72,6 +72,16 @@ interface RustMediaInfo {
   codec: string | null;
 }
 
+/** What the bridge reported when a .ydr drawable was converted to the stored GLB. */
+interface RustConversion {
+  lod: string;
+  models: number;
+  geometries: number;
+  vertices: number;
+  triangles: number;
+  warnings: string[];
+}
+
 interface ImportResult {
   relPath: string;
   sha256: string;
@@ -81,11 +91,46 @@ interface ImportResult {
   mime: string;
   deduplicated: boolean;
   info: RustMediaInfo | null;
+  /** Present only for a converted source: the stored file is the GLB, `relPath` points at it. */
+  convertedFrom?: 'ydr';
+  conversion?: RustConversion;
 }
 
 const baseName = (p: string) => p.split(/[\\/]/).pop() ?? p;
 
 const num = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? null : v);
+
+const LODS = new Set(['high', 'med', 'low', 'vlow']);
+const count = (v: unknown): number | null => (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 1e9 ? v : null);
+
+/** A one-line summary of a converted import, or null for every ordinary import. The reply is validated, not trusted. */
+export function conversionNote(r: Pick<ImportResult, 'convertedFrom' | 'conversion'>): string | null {
+  if (r.convertedFrom !== 'ydr') return null;
+  const c: Partial<Record<keyof RustConversion, unknown>> = r.conversion ?? {};
+  const parts: string[] = [];
+  if (typeof c.lod === 'string' && LODS.has(c.lod)) parts.push(`${c.lod} level of detail`);
+  const models = count(c.models);
+  if (models !== null) parts.push(`${models} model${models === 1 ? '' : 's'}`);
+  const tris = count(c.triangles);
+  if (tris !== null) parts.push(`${tris.toLocaleString()} triangles`);
+  const warnings = Array.isArray(c.warnings) ? c.warnings.length : 0;
+  // a toast is read in seconds: the full list lives in the weapon's 3D model panel
+  return `Converted from .ydr${parts.length ? ` (${parts.join(', ')})` : ''}: geometry only.${warnings ? ` ${warnings} converter warning${warnings === 1 ? '' : 's'} in the 3D model panel.` : ''}`;
+}
+
+const cleanExtensions = (exts: string[]) => exts.map((e) => e.replace(/^\./, '')).filter((e) => /^[a-z0-9.]+$/i.test(e));
+
+/**
+ * The native dialog's file-type dropdown. Caller filters are kept as separate entries (extensions are
+ * sanitised, entries left with none are dropped); with none usable the old single "Supported files"
+ * entry built from `accept` is used, and with nothing at all the dialog shows every file.
+ */
+export function dialogFilters(accept: string[], filters?: PickFilter[]): Array<{ name: string; extensions: string[] }> | undefined {
+  const own = (filters ?? []).map((f) => ({ name: f.name.trim().slice(0, 80) || 'Files', extensions: cleanExtensions(f.extensions) })).filter((f) => f.extensions.length > 0);
+  if (own.length) return own;
+  const all = cleanExtensions(accept);
+  return all.length ? [{ name: 'Supported files', extensions: all }] : undefined;
+}
 
 function mediaInfoFrom(r: RustMediaInfo): MediaInfo {
   return {
@@ -307,12 +352,14 @@ export async function createTauriPlatform(opts: TauriPlatformOptions): Promise<P
       return status.bridge;
     },
 
-    async importAsset(source, onProgress) {
+    async importAsset(source, onProgress, onNote) {
       if (typeof source !== 'string') throw new Error('Choose files with the Import button or drop them on the window; the desktop app imports by file path.');
       onProgress?.(0.1);
       const r = await call<ImportResult>('import_asset', { projectId: pid(), source });
       onProgress?.(0.7);
       if (r.category === 'unknown') throw new Error(`"${baseName(source)}" is not a recognised image, video or 3D model.`);
+      const note = conversionNote(r);
+      if (note) onNote?.(note);
       let info: MediaInfo | null = r.info ? mediaInfoFrom(r.info) : null;
       if (!info && r.category === 'image') {
         // no ffprobe: the web engine can still read an image's size and transparency
@@ -348,9 +395,8 @@ export async function createTauriPlatform(opts: TauriPlatformOptions): Promise<P
       return 'saved';
     },
 
-    async pickFiles({ accept, multiple, title }) {
-      const extensions = accept.map((a) => a.replace(/^\./, '')).filter((a) => /^[a-z0-9.]+$/i.test(a));
-      const picked = await openDialog({ multiple: !!multiple, title, filters: extensions.length ? [{ name: 'Supported files', extensions }] : undefined });
+    async pickFiles({ accept, multiple, title, filters }) {
+      const picked = await openDialog({ multiple: !!multiple, title, filters: dialogFilters(accept, filters) });
       if (!picked) return [];
       return Array.isArray(picked) ? picked : [picked];
     },

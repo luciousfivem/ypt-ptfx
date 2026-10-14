@@ -133,6 +133,28 @@ pub fn require_existing_file(path: &Path) -> Result<PathBuf> {
     Ok(canon)
 }
 
+/// Requires an absolute, existing directory and returns its canonical path (no cosmetic Windows
+/// verbatim prefix, so it can be handed to a subprocess).
+pub fn require_existing_dir(path: &Path) -> Result<PathBuf> {
+    if !path.is_absolute() {
+        return Err(Error::UnsafePath(format!(
+            "{} (expected an absolute path)",
+            path.display()
+        )));
+    }
+    let canon = simplify_canonical(
+        path.canonicalize()
+            .map_err(|_| Error::NotFound(path.display().to_string()))?,
+    );
+    if !canon.is_dir() {
+        return Err(Error::InvalidParam(format!(
+            "{} is not a folder",
+            canon.display()
+        )));
+    }
+    Ok(canon)
+}
+
 /// Rejects `..` components outright for paths that arrive as raw strings from the UI.
 pub fn reject_traversal(path: &Path) -> Result<()> {
     if path.components().any(|c| matches!(c, Component::ParentDir)) {
@@ -222,6 +244,24 @@ mod tests {
             require_existing_file(dir.path()),
             Err(Error::InvalidParam(_))
         ));
+    }
+
+    #[test]
+    fn existing_folder_requirements() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("a.bin");
+        std::fs::write(&f, b"x").unwrap();
+        let canon = require_existing_dir(dir.path()).unwrap();
+        assert!(canon.is_absolute() && canon.is_dir());
+        assert!(matches!(
+            require_existing_dir(Path::new("relative")),
+            Err(Error::UnsafePath(_))
+        ));
+        assert!(matches!(
+            require_existing_dir(&dir.path().join("missing")),
+            Err(Error::NotFound(_))
+        ));
+        assert!(matches!(require_existing_dir(&f), Err(Error::InvalidParam(_))));
     }
 
     #[test]

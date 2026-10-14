@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Drawable>
+ <Name>vfxforge_cube_pnct</Name>
+ <BoundingSphereCenter x="0" y="0.75" z="0.375" />
+ <BoundingSphereRadius value="1.145644" />
+ <BoundingBoxMin x="-0.5" y="-0.25" z="0.125" />
+ <BoundingBoxMax x="0.5" y="1.75" z="0.625" />
+ <LodDistHigh value="9998" />
+ <LodDistMed value="9998" />
+ <LodDistLow value="9998" />
+ <LodDistVlow value="9998" />
+ <FlagsHigh value="0" />
+ <FlagsMed value="0" />
+ <FlagsLow value="0" />
+ <FlagsVlow value="0" />
+ <DrawableModelsHigh>
+   <Item>
+    <RenderMask value="255" />
+    <Flags value="0" />
+    <HasSkin value="0" />
+    <BoneIndex value="0" />
+    <Unknown1 value="0" />
+    <Geometries>
+    <Item>
+     <ShaderIndex value="0" />
+     <BoundingBoxMin x="-0.5" y="-0.25" z="0.125" w="0" />
+     <BoundingBoxMax x="0.5" y="1.75" z="0.625" w="0" />
+     <VertexBuffer>
+      <Flags value="0" />
+      <Layout type="GTAV1">
+       <Position />
+       <Normal />
+       <Colour0 />
+       <TexCoord0 />
+      </Layout>
+      <Data>
+       0.5 -0.25 0.125   1 0 0   255 255 255 255   0 0
+       0.5 1.75 0.125   1 0 0   255 255 255 255   1 0
+       0.5 1.75 0.625   1 0 0   255 255 255 255   1 1
+       0.5 -0.25 0.625   1 0 0   255 255 255 255   0 1
+       -0.5 -0.25 0.125   -1 0 0   255 255 255 255   0 0
+       -0.5 -0.25 0.625   -1 0 0   255 255 255 255   1 0
+       -0.5 1.75 0.625   -1 0 0   255 255 255 255   1 1
+       -0.5 1.75 0.125   -1 0 0   255 255 255 255   0 1
+       -0.5 1.75 0.125   0 1 0   255 255 255 255   0 0
+       -0.5 1.75 0.625   0 1 0   255 255 255 255   1 0
+       0.5 1.75 0.625   0 1 0   255 255 255 255   1 1
+       0.5 1.75 0.125   0 1 0   255 255 255 255   0 1
+       -0.5 -0.25 0.125   0 -1 0   255 255 255 255   0 0
+       0.5 -0.25 0.125   0 -1 0   255 255 255 255   1 0
+       0.5 -0.25 0.625   0 -1 0   255 255 255 255   1 1
+       -0.5 -0.25 0.625   0 -1 0   255 255 255 255   0 1
+       -0.5 -0.25 0.625   0 0 1   255 255 255 255   0 0
+       0.5 -0.25 0.625   0 0 1   255 255 255 255   1 0
+       0.5 1.75 0.625   0 0 1   255 255 255 255   1 1
+       -0.5 1.75 0.625   0 0 1   255 255 255 255   0 1
+       -0.5 -0.25 0.125   0 0 -1   255 255 255 255   0 0
+       -0.5 1.75 0.125   0 0 -1   255 255 255 255   1 0
+       0.5 1.75 0.125   0 0 -1   255 255 255 255   1 1
+       0.5 -0.25 0.125   0 0 -1   255 255 255 255   0 1
+      </Data>
+     </VertexBuffer>
+     <IndexBuffer>
+      <Data>
+       0 1 2 0 2 3 4 5 6 4 6 7
+       8 9 10 8 10 11 12 13 14 12 14 15
+       16 17 18 16 18 19 20 21 22 20 22 23
+      </Data>
+     </IndexBuffer>
+    </Item>
+    </Geometries>
+   </Item>
+ </DrawableModelsHigh>
+</Drawable>

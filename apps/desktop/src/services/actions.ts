@@ -25,6 +25,7 @@ import {
   type Sheet,
 } from '@vfxforge/core';
 import { findPreset, instantiatePreset } from '@vfxforge/particles';
+import { importPicker, isConvertedYdr } from '../lib/model-files';
 import { useDerived } from '../state/derived';
 import { editProject, getProject, useProject } from '../state/project';
 import { runtimeCommands } from '../state/runtime';
@@ -135,7 +136,9 @@ export async function importFiles(files: Array<File | string>): Promise<void> {
     const jobId = `import:${label}:${Date.now()}`;
     ui.setJob(jobId, { label: `Importing ${label}`, progress: null });
     try {
-      const asset = await platform.importAsset(f, (p) => useUi.getState().setJob(jobId, { label: `Importing ${label}`, progress: p }));
+      const notes: string[] = [];
+      const asset = await platform.importAsset(f, (p) => useUi.getState().setJob(jobId, { label: `Importing ${label}`, progress: p }), (m) => notes.push(m));
+      const extra = notes.length ? ` ${notes.join(' ')}` : '';
       const existing = Object.values(getProject().assets).find((a) => a.sha256 === asset.sha256);
       if (existing) {
         toast('info', `“${label}” is already in this project.`);
@@ -147,10 +150,16 @@ export async function importFiles(files: Array<File | string>): Promise<void> {
           d.assets[asset.id] = asset;
           d.weapon.modelAssetId = asset.id;
           d.weapon.preset = 'custom';
+          if (isConvertedYdr(asset)) {
+            // the converter already wrote the preview's axes (Y-up) in GTA metres: a rotation or scale left over from
+            // the previous model could only be wrong for it
+            d.weapon.modelRotation = [0, 0, 0];
+            d.weapon.modelScale = 1;
+          }
         });
         useUi.getState().select({ kind: 'weapon' });
         useUi.getState().setMode('weapon');
-        toast('ok', `Imported 3D model “${asset.name}” and set it as the preview weapon.`);
+        toast('ok', `Imported 3D model “${asset.name}” and set it as the preview weapon.${extra}`);
       } else {
         const { clip, sheet } = createClipFromAsset(asset);
         editProject(`Import ${asset.name}`, (d) => {
@@ -160,7 +169,7 @@ export async function importFiles(files: Array<File | string>): Promise<void> {
         });
         useUi.getState().select({ kind: 'clip', id: clip.id });
         useUi.getState().setMode('sprite');
-        toast('ok', `Imported “${asset.name}”. A clip and spritesheet were created — tune them in the Sprite Editor.`);
+        toast('ok', `Imported “${asset.name}”. A clip and spritesheet were created — tune them in the Sprite Editor.${extra}`);
       }
     } catch (e) {
       toast('error', `${label}: ${errMsg(e)}`);
@@ -172,11 +181,8 @@ export async function importFiles(files: Array<File | string>): Promise<void> {
 
 export async function pickAndImport(): Promise<void> {
   const { platform } = svc();
-  const files = await platform.pickFiles({
-    accept: ['.mp4', '.mov', '.webm', '.mkv', '.avi', '.gif', '.png', '.jpg', '.jpeg', '.webp', '.glb', '.gltf', '.obj', '.fbx'],
-    multiple: true,
-    title: 'Import media or a 3D model',
-  });
+  const { accept, filters } = importPicker(platform.kind);
+  const files = await platform.pickFiles({ accept, filters, multiple: true, title: 'Import media or a 3D model' });
   if (files.length) await importFiles(files);
 }
 

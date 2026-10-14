@@ -7,6 +7,7 @@ import { checkIntegrity, createAsset, parseProject, sanitizeFilename, type Asset
 import { decodePng, sha256Hex, sniffBytes, type RgbaImage } from '@vfxforge/media';
 import { generateSpriteFrames } from '@vfxforge/particles';
 import { unzipSync, zipSync } from 'fflate';
+import { isYdrName, YDR_BROWSER_ERROR } from '../lib/model-files';
 import type { ExtractOptions, FrameService, Platform, ProjectStore, ProjectSummary } from './types';
 import { bitmapFrom, extractAnimated, hasTransparency, imageDataOf, loadVideo, once, targetSize } from './web-media';
 
@@ -246,6 +247,7 @@ export function createBrowserPlatform(): Platform {
 
     async importAsset(source, onProgress) {
       if (typeof source === 'string') throw new Error('The browser build cannot open files by path.');
+      if (isYdrName(source.name)) throw new Error(YDR_BROWSER_ERROR);
       if (source.size === 0) throw new Error(`"${source.name}" is empty.`);
       if (source.size > MAX_BROWSER_BYTES) throw new Error(`"${source.name}" is larger than 1 GiB; the browser build cannot hold it in memory. Use the desktop app for very large media.`);
       const head = new Uint8Array(await source.slice(0, 8192).arrayBuffer());

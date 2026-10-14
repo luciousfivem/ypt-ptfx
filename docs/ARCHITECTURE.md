@@ -3,7 +3,7 @@
 ## The pipeline
 
 ```
- image / GIF / MP4 / WebM          3D model (GLB/glTF/OBJ/FBX)
+ image / GIF / MP4 / WebM          3D model (GLB/glTF/OBJ/FBX; .ydr -> GLB via the bridge)
         │ import (content-sniffed,          │ preview only — never exported
         │ hashed, stored untouched)         ▼
         ▼                              ┌──────────────┐
@@ -98,9 +98,10 @@ languages), so DDS textures, PNG frames and `.ypt` files never become JSON numbe
 | Input | Treatment |
 |---|---|
 | Media / models | Identified by magic numbers, not extension; size-limited; stored by SHA-256; originals never modified. glTF external references are blocked |
+| `.ydr` drawables | The only import chosen by name: it must end in `.ydr` **and** start with an RSC7 header (an RSC7 file with another name is refused). A private copy is converted by the bridge (`ydr2glb`) in a scratch folder that is always removed; the bridge's reply is validated, its output must be a well-formed GLB and is stored like any model (the `.ydr` itself is not kept). GLB metadata from the converter is read as untrusted (types checked, strings capped) |
 | Project files / bundles / preset packages | zod-validated; referential integrity checked; bundle assets re-hashed; paths confined to the project folder (`..`, absolute, UNC, `//` rejected) |
 | FFmpeg | argv built from validated numbers only; forced demuxer; `-protocol_whitelist file`; absolute canonical input path; hard timeout; process tree killed on cancel |
-| Converter | fixed command set; absolute paths; texture names must match `[a-z][a-z0-9_]*.dds`; temp folder removed afterwards |
+| Converter | fixed command set; absolute paths; runs CodeWalker's reader on a thread with a 256 MiB stack so a hostile file cannot abort it before it answers (a reply-less exit is reported as a failed conversion); texture names must match `[a-z][a-z0-9_]*.dds`; temp folder removed afterwards |
 | XML (donor files) | DTD/entity expansion rejected; size-capped |
 | Generated Lua | every embedded string escaped; injection attempts are in the test-suite |
 | Webview | CSP; no filesystem scope; only the app's own commands + native dialogs |

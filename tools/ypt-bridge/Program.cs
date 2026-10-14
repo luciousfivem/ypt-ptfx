@@ -1,5 +1,7 @@
 // VFXForge YPT bridge — talks to a locally built CodeWalker.Core (GPL; not distributed here).
 //
+// Commands: version, xml2ypt, ypt2xml, xml-normalize (particle effects) and ydr2glb, xml2ydr (drawable models, YdrConvert.cs).
+//
 // Protocol: one JSON object on the LAST line of stdout.
 //   success: {"ok":true, ...}
 //   failure: {"ok":false,"code":"...","error":"..."}      (exit code 1)
@@ -17,7 +19,23 @@ public static class Program
 {
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
 
+    // CodeWalker's resource reader follows linked structures recursively (skeleton bone tags, for example). A hostile file
+    // with a long chain can exhaust the default main-thread stack (1 MiB on Windows, 8 MiB on Linux), and a stack
+    // overflow kills the process before any JSON reply is written. All work therefore runs on a thread with a large
+    // stack (address space is reserved, memory is only committed as it is used). This raises the limit by orders of
+    // magnitude; it cannot remove it, so the launcher still treats "exited without a reply" as a failed conversion.
+    private const int WorkerStackBytes = 256 * 1024 * 1024;
+
     public static int Main(string[] args)
+    {
+        int exitCode = 1;
+        var worker = new Thread(() => exitCode = Run(args), WorkerStackBytes) { Name = "vfxforge-bridge" };
+        worker.Start();
+        worker.Join();
+        return exitCode;
+    }
+
+    private static int Run(string[] args)
     {
         try
         {
@@ -29,7 +47,9 @@ public static class Program
                 "xml2ypt" => XmlToYpt(Req(opts, "in"), Req(opts, "out"), opts.GetValueOrDefault("gen", "legacy")),
                 "ypt2xml" => YptToXml(Req(opts, "in"), Req(opts, "out")),
                 "xml-normalize" => XmlNormalize(Req(opts, "in"), Req(opts, "out")),
-                _ => throw new BridgeException("unknown_command", $"Unknown command '{cmd}'. Commands: version, xml2ypt, ypt2xml, xml-normalize."),
+                "ydr2glb" => YdrToGlb(opts),
+                "xml2ydr" => XmlToYdr(opts),
+                _ => throw new BridgeException("unknown_command", $"Unknown command '{cmd}'. Commands: version, xml2ypt, ypt2xml, xml-normalize, ydr2glb, xml2ydr."),
             };
             Console.Out.WriteLine(JsonSerializer.Serialize(reply, Json));
             return 0;
@@ -37,6 +57,11 @@ public static class Program
         catch (BridgeException ex)
         {
             Fail(ex.Code, ex.Message);
+        }
+        catch (OutOfMemoryException ex)
+        {
+            Console.Error.WriteLine(ex.ToString());
+            Fail("too_large", "The converter ran out of memory; the file is larger or more complex than it can handle.");
         }
         catch (Exception ex)
         {
@@ -142,6 +167,26 @@ public static class Program
         return new { ok = true, output = outPath, summary = Summarise(ypt) };
     }
 
+    /// GTA V drawable (.ydr) -> GLB. See YdrConvert.cs; the output contract is documented in fixtures/README.md.
+    private static object YdrToGlb(Dictionary<string, string> opts)
+    {
+        OnlyOptions(opts, "in", "out", "lod");
+        return YdrConverter.YdrToGlb(Req(opts, "in"), Req(opts, "out"), opts.GetValueOrDefault("lod", "auto"));
+    }
+
+    /// CodeWalker drawable XML -> .ydr; a developer/test helper used to author the fixtures, not a user-facing command.
+    private static object XmlToYdr(Dictionary<string, string> opts)
+    {
+        OnlyOptions(opts, "in", "out", "gen");
+        return YdrConverter.XmlToYdr(Req(opts, "in"), Req(opts, "out"), opts.GetValueOrDefault("gen", "legacy"));
+    }
+
+    private static void OnlyOptions(Dictionary<string, string> opts, params string[] allowed)
+    {
+        foreach (var key in opts.Keys)
+            if (!allowed.Contains(key)) throw new BridgeException("bad_argument", $"Unknown option --{key}. Options: {string.Join(", ", allowed.Select(a => "--" + a))}.");
+    }
+
     // ------------------------------------------------------------------- helpers
 
     private static Dictionary<string, object> Summarise(YptFile ypt)
@@ -178,7 +223,7 @@ public static class Program
     private static string Describe(object o) => o is string[] arr ? "[" + string.Join(", ", arr) + "]" : o.ToString() ?? "";
 
     /// DTDs are prohibited and no resolver is used, so external entities / billion-laughs style XML cannot be expanded.
-    private static string ReadXmlSafely(string path)
+    internal static string ReadXmlSafely(string path)
     {
         var text = File.ReadAllText(path, Encoding.UTF8);
         var settings = new XmlReaderSettings
@@ -199,14 +244,14 @@ public static class Program
         return text;
     }
 
-    private static string ExistingFile(string path)
+    internal static string ExistingFile(string path)
     {
         var full = Path.GetFullPath(path);
         if (!File.Exists(full)) throw new BridgeException("not_found", $"File not found: {full}");
         return full;
     }
 
-    private static string OutputFile(string path, string requiredSuffix)
+    internal static string OutputFile(string path, string requiredSuffix)
     {
         var full = Path.GetFullPath(path);
         if (!full.EndsWith(requiredSuffix, StringComparison.OrdinalIgnoreCase))
@@ -216,7 +261,7 @@ public static class Program
         return full;
     }
 
-    private static void AtomicWrite(string path, byte[] data)
+    internal static void AtomicWrite(string path, byte[] data)
     {
         var tmp = path + "." + Environment.ProcessId + ".tmp";
         File.WriteAllBytes(tmp, data);

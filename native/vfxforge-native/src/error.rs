@@ -26,7 +26,8 @@ pub enum Error {
     #[error("Operation cancelled")]
     Cancelled,
 
-    #[error("{tool} failed (exit code {code:?}): {detail}")]
+    // `code` is None when the tool reported the failure itself (the bridge's JSON reply) rather than via its exit status
+    #[error("{tool} failed{}: {detail}", .code.map(|c| format!(" (exit code {c})")).unwrap_or_default())]
     ToolFailed {
         tool: String,
         code: Option<i32>,
@@ -92,5 +93,19 @@ pub trait IoContext<T> {
 impl<T> IoContext<T> for std::io::Result<T> {
     fn ctx(self, what: &str) -> Result<T> {
         self.map_err(|e| Error::io(what, e))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tool_failures_only_mention_an_exit_code_when_there_is_one() {
+        let with = Error::ToolFailed { tool: "dotnet".into(), code: Some(134), detail: "boom".into() };
+        assert_eq!(with.to_string(), "dotnet failed (exit code 134): boom");
+        let without = Error::ToolFailed { tool: "ypt-bridge (parse_failed)".into(), code: None, detail: "bad file".into() };
+        assert_eq!(without.to_string(), "ypt-bridge (parse_failed) failed: bad file");
+        assert_eq!(without.code(), "tool_failed");
     }
 }

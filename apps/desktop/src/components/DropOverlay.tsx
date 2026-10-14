@@ -58,7 +58,7 @@ export function DropOverlay() {
       <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-accent bg-panel/90 px-14 py-10">
         <UploadCloud className="size-10 text-accent" />
         <p className="text-[15px] font-semibold">Drop to import</p>
-        <p className="text-[12px] text-muted">Video, GIF, image or 3D model</p>
+        <p className="text-[12px] text-muted">{maybeSvc()?.platform.kind === 'tauri' ? 'Video, GIF, image, 3D model or GTA V .ydr' : 'Video, GIF, image or 3D model'}</p>
       </div>
     </div>
   );

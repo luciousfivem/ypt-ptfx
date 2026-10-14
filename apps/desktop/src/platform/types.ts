@@ -85,12 +85,21 @@ export interface ToolsApi {
   setPaths(paths: ToolPaths): Promise<ToolsStatus>;
 }
 
+/** One entry of the desktop file dialog's file-type dropdown. Extensions are given without the dot. */
+export interface PickFilter {
+  name: string;
+  extensions: string[];
+}
+
 export interface Platform {
   readonly kind: 'tauri' | 'browser';
   readonly label: string;
   readonly features: PlatformFeatures;
-  /** Validates (by content, not extension), hashes and stores `source`; the original is never modified. */
-  importAsset(source: File | string, onProgress?: (p: number) => void): Promise<Asset>;
+  /**
+   * Validates (by content, not extension), hashes and stores `source`; the original is never modified.
+   * `onNote` receives informational messages about what the import did (e.g. a .ydr drawable was converted to a GLB).
+   */
+  importAsset(source: File | string, onProgress?: (p: number) => void, onNote?: (message: string) => void): Promise<Asset>;
   /** A URL usable by <img>, <video> and loaders. Revoke with `release` when done. */
   assetUrl(asset: Asset): Promise<string>;
   assetBytes(asset: Asset): Promise<Uint8Array>;
@@ -100,8 +109,12 @@ export interface Platform {
   converterStatus(): Promise<ConverterStatus>;
   /** Saves a file for the user: native dialog (desktop) or download (browser). */
   saveFile(suggestedName: string, bytes: Uint8Array, mime: string): Promise<'saved' | 'cancelled'>;
-  /** Opens a file picker. Desktop returns native paths, the browser returns File objects. */
-  pickFiles(opts: { accept: string[]; multiple?: boolean; title?: string }): Promise<Array<File | string>>;
+  /**
+   * Opens a file picker. Desktop returns native paths, the browser returns File objects.
+   * `accept` lists every allowed extension. `filters` (desktop only; the browser ignores it) become the dialog's
+   * file-type dropdown, so a caller lists "everything allowed" first and then narrower groups.
+   */
+  pickFiles(opts: { accept: string[]; multiple?: boolean; title?: string; filters?: PickFilter[] }): Promise<Array<File | string>>;
   /** Desktop only. */
   tools?: ToolsApi;
   /**

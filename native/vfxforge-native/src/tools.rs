@@ -63,12 +63,12 @@ pub fn locate(name: &str, configured: Option<&Path>, extra_dirs: &[PathBuf]) -> 
             }
         }
     }
-    Err(Error::ToolMissing {
-        tool: name.to_string(),
-        hint: format!(
-            "Install FFmpeg (https://ffmpeg.org/download.html) and either add it to PATH, place '{name}' next to the VFXForge executable, or set its path in Settings > Tools. Image import and procedural animation still work without it; video import needs it."
-        ),
-    })
+    let hint = if name == "dotnet" {
+        "Install the .NET 8 runtime or SDK (https://dotnet.microsoft.com/download) and either add dotnet to PATH or set its path in Settings > Tools. It is only needed for the optional converter bridge.".to_string()
+    } else {
+        format!("Install FFmpeg (https://ffmpeg.org/download.html) and either add it to PATH, place '{name}' next to the VFXForge executable, or set its path in Settings > Tools. Image import and procedural animation still work without it; video import needs it.")
+    };
+    Err(Error::ToolMissing { tool: name.to_string(), hint })
 }
 
 /// Builds a `Command` that never opens a console window on Windows and never inherits stdin.
@@ -164,6 +164,19 @@ mod tests {
         assert!(err.to_string().contains("Install FFmpeg"));
         let bad = locate("ffmpeg", Some(Path::new("/nonexistent/ffmpeg")), &[]).unwrap_err();
         assert!(bad.to_string().contains("Settings > Tools"));
+    }
+
+    #[test]
+    fn a_missing_dotnet_does_not_tell_you_to_install_ffmpeg() {
+        // `dotnet` is looked up by the converter bridge launcher, so its hint must be about .NET
+        let configured = locate("dotnet", Some(Path::new("/nonexistent/dotnet")), &[]).unwrap_err();
+        assert!(!configured.to_string().contains("FFmpeg"), "{configured}");
+        assert!(configured.to_string().contains("Settings > Tools"));
+        // the unconfigured lookup is only deterministic when no dotnet is on PATH
+        if let Err(e) = locate("dotnet", None, &[]) {
+            let e = e.to_string();
+            assert!(e.contains(".NET 8") && !e.contains("FFmpeg"), "{e}");
+        }
     }
 
     #[test]

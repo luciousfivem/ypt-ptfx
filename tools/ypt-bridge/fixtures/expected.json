@@ -1,0 +1,224 @@
+{
+  "cube_pnct": {
+    "xml": "cube_pnct.ydr.xml",
+    "ydr": "cube_pnct.ydr",
+    "glb": "cube_pnct.glb",
+    "gen": "legacy",
+    "expect": {
+      "gen": "legacy",
+      "resourceVersion": 165,
+      "lod": "high",
+      "lodsAvailable": [
+        "high"
+      ],
+      "models": 1,
+      "geometries": 1,
+      "vertices": 24,
+      "triangles": 12,
+      "windingFlippedGeometries": 0,
+      "hasSkeleton": false,
+      "boneTransformsApplied": false,
+      "shaders": [],
+      "warnings": [],
+      "bounds": {
+        "min": [
+          -0.5,
+          0.125,
+          -1.75
+        ],
+        "max": [
+          0.5,
+          0.625,
+          0.25
+        ]
+      }
+    }
+  },
+  "cube_pnct_gen9": {
+    "xml": "cube_pnct.ydr.xml",
+    "ydr": "cube_pnct_gen9.ydr",
+    "glb": "cube_pnct_gen9.glb",
+    "gen": "gen9",
+    "expect": {
+      "gen": "gen9",
+      "resourceVersion": 159,
+      "lod": "high",
+      "lodsAvailable": [
+        "high"
+      ],
+      "models": 1,
+      "geometries": 1,
+      "vertices": 24,
+      "triangles": 12,
+      "windingFlippedGeometries": 0,
+      "hasSkeleton": false,
+      "boneTransformsApplied": false,
+      "shaders": [],
+      "warnings": [],
+      "bounds": {
+        "min": [
+          -0.5,
+          0.125,
+          -1.75
+        ],
+        "max": [
+          0.5,
+          0.625,
+          0.25
+        ]
+      }
+    }
+  },
+  "multi_lod": {
+    "xml": "multi_lod.ydr.xml",
+    "ydr": "multi_lod.ydr",
+    "glb": "multi_lod.glb",
+    "gen": "legacy",
+    "expect": {
+      "gen": "legacy",
+      "resourceVersion": 165,
+      "lod": "high",
+      "lodsAvailable": [
+        "high",
+        "med"
+      ],
+      "models": 2,
+      "geometries": 3,
+      "vertices": 44,
+      "triangles": 22,
+      "windingFlippedGeometries": 1,
+      "hasSkeleton": false,
+      "boneTransformsApplied": false,
+      "shaders": [
+        "default",
+        "spec"
+      ],
+      "bounds": {
+        "min": [
+          -1.5,
+          0,
+          -1.25
+        ],
+        "max": [
+          1.5,
+          0.5,
+          0
+        ]
+      }
+    }
+  },
+  "multi_lod_med": {
+    "xml": "multi_lod.ydr.xml",
+    "ydr": "multi_lod.ydr",
+    "glb": "multi_lod_med.glb",
+    "gen": "legacy",
+    "lod": "med",
+    "expect": {
+      "gen": "legacy",
+      "resourceVersion": 165,
+      "lod": "med",
+      "lodsAvailable": [
+        "high",
+        "med"
+      ],
+      "models": 1,
+      "geometries": 1,
+      "vertices": 24,
+      "triangles": 12,
+      "windingFlippedGeometries": 0,
+      "hasSkeleton": false,
+      "boneTransformsApplied": false,
+      "shaders": [
+        "default"
+      ],
+      "warnings": [],
+      "bounds": {
+        "min": [
+          -0.5,
+          0,
+          -1
+        ],
+        "max": [
+          0.5,
+          0.5,
+          0
+        ]
+      }
+    }
+  },
+  "bone_bound": {
+    "xml": "bone_bound.ydr.xml",
+    "ydr": "bone_bound.ydr",
+    "glb": "bone_bound.glb",
+    "gen": "legacy",
+    "expect": {
+      "gen": "legacy",
+      "resourceVersion": 165,
+      "lod": "high",
+      "lodsAvailable": [
+        "high"
+      ],
+      "models": 4,
+      "geometries": 4,
+      "vertices": 96,
+      "triangles": 48,
+      "windingFlippedGeometries": 1,
+      "hasSkeleton": true,
+      "boneTransformsApplied": true,
+      "shaders": [
+        "default"
+      ],
+      "bounds": {
+        "min": [
+          -0.75,
+          0,
+          -1.25
+        ],
+        "max": [
+          1.25,
+          1.25,
+          0.5
+        ]
+      }
+    }
+  },
+  "mirror_no_normals": {
+    "xml": "mirror_no_normals.ydr.xml",
+    "ydr": "mirror_no_normals.ydr",
+    "glb": "mirror_no_normals.glb",
+    "gen": "legacy",
+    "expect": {
+      "gen": "legacy",
+      "resourceVersion": 165,
+      "lod": "high",
+      "lodsAvailable": [
+        "high"
+      ],
+      "models": 2,
+      "geometries": 2,
+      "vertices": 48,
+      "triangles": 24,
+      "windingFlippedGeometries": 1,
+      "hasSkeleton": true,
+      "boneTransformsApplied": true,
+      "shaders": [
+        "default"
+      ],
+      "warnings": [
+        "model_1 geometry 0 has no normals to judge its winding by; it follows the other geometries (12 triangles stored counter-clockwise, 0 clockwise relative to their normals) and its bone placement mirrors it, so its index order was reversed."
+      ],
+      "bounds": {
+        "min": [
+          -0.25,
+          0,
+          -0.5
+        ],
+        "max": [
+          2.25,
+          0.25,
+          0.5
+        ]
+      }
+    }
+  }
+}

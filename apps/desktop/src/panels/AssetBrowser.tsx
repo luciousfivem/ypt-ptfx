@@ -149,7 +149,10 @@ function MediaList() {
       <Button className="w-full" variant="primary" icon={<Upload className="size-3.5" aria-hidden />} onClick={() => void pickAndImport()} data-testid="import-button">
         Import media or model…
       </Button>
-      <p className="mt-1.5 text-[10.5px] leading-snug text-dim">MP4, MOV, WebM, GIF, WebP, PNG, JPG · GLB, glTF, OBJ, FBX. You can also drop files anywhere in the window. Files are identified by their contents, not their extension.</p>
+      <p className="mt-1.5 text-[10.5px] leading-snug text-dim">
+        MP4, MOV, WebM, GIF, WebP, PNG, JPG · GLB, glTF, OBJ, FBX
+        {svc().platform.kind === 'tauri' && ' · GTA V .ydr (converted to GLB by the converter bridge; geometry only)'}. You can also drop files anywhere in the window. Files are identified by their contents, not their extension.
+      </p>
 
       <h3 className="px-1 pb-1 pt-3 text-[10.5px] font-semibold uppercase tracking-wider text-dim">Imported ({list.length})</h3>
       {list.length === 0 && <p className="px-1 text-[11.5px] text-dim">Nothing imported yet.</p>}
