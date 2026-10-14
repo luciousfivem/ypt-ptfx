@@ -506,7 +506,11 @@ mod ipc_tests {
             cmd: cmd.into(),
             callback: CallbackFn(0),
             error: CallbackFn(1),
-            url: "tauri://localhost".parse().unwrap(),
+            // the webview's own origin: Windows/Android serve the app from http://tauri.localhost, anything else
+            // would be treated as a remote page and rejected by the ACL
+            url: if cfg!(windows) || cfg!(target_os = "android") { "http://tauri.localhost" } else { "tauri://localhost" }
+                .parse()
+                .unwrap(),
             body,
             headers: Default::default(),
             invoke_key: INVOKE_KEY.to_string(),
@@ -636,7 +640,9 @@ mod ipc_tests {
         let msg = wire::pack(&json!({ "path": out.to_string_lossy() }), &[&[1u8, 2, 3][..]]).unwrap();
         h.raw_in("write_user_file", msg).unwrap();
         assert_eq!(std::fs::read(&out).unwrap(), [1, 2, 3]);
-        for bad in ["relative.bin", "/definitely/not/a/folder/x.bin"] {
+        // relative, and absolute-with-a-missing-parent (absolute on every OS, unlike a bare "/x/y")
+        let missing_parent = h.dir.path().join("no-such-folder").join("x.bin").to_string_lossy().into_owned();
+        for bad in ["relative.bin", missing_parent.as_str()] {
             let msg = wire::pack(&json!({ "path": bad }), &[&[1u8][..]]).unwrap();
             assert!(h.raw_in("write_user_file", msg).is_err(), "{bad}");
         }
@@ -746,10 +752,13 @@ mod ipc_tests {
         let h = harness(ToolPaths::default());
         let e = h.err("set_tool_paths", json!({ "paths": { "ffmpeg": "ffmpeg", "ffprobe": null, "dotnet": null, "dll": null } }));
         assert_eq!(e["code"], "unsafe_path");
-        let e = h.err("set_tool_paths", json!({ "paths": { "ffmpeg": "/a/../b/ffmpeg", "ffprobe": null, "dotnet": null, "dll": null } }));
+        // absolute on every OS (a bare "/a/b" has no drive letter on Windows and would be rejected as relative)
+        let traversal = h.dir.path().join("a").join("..").join("b").join("ffmpeg").to_string_lossy().into_owned();
+        let e = h.err("set_tool_paths", json!({ "paths": { "ffmpeg": traversal, "ffprobe": null, "dotnet": null, "dll": null } }));
         assert_eq!(e["code"], "unsafe_path");
         // an absolute path that does not exist is accepted as configuration but reported as unavailable
-        let v = h.json("set_tool_paths", json!({ "paths": { "ffmpeg": "/nonexistent/ffmpeg", "ffprobe": null, "dotnet": null, "dll": null } }));
+        let missing = h.dir.path().join("nonexistent").join("ffmpeg").to_string_lossy().into_owned();
+        let v = h.json("set_tool_paths", json!({ "paths": { "ffmpeg": missing, "ffprobe": null, "dotnet": null, "dll": null } }));
         assert_eq!(v["ffmpeg"]["available"], false);
         assert!(h.dir.path().join("tools.json").is_file());
     }
