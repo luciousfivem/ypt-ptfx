@@ -9,7 +9,7 @@ stated. Nothing here was run inside GTA V or FiveM, because that cannot be done 
 | Suite | Count | What it exercises |
 |---|---|---|
 | TypeScript unit/integration (vitest) | 358 (+1 opt-in generator) | core 34 · media 57 · ypt 55 · fivem 48 · export 49 · particles 73 · desktop 42 |
-| Rust (`cargo test --workspace`) | 81 | native 55 unit · FFmpeg integration 12 · CodeWalker converter integration 4 · Tauri IPC 10 |
+| Rust (`cargo test --workspace`) | 82 | native 55 unit · FFmpeg integration 13 · CodeWalker converter integration 4 · Tauri IPC 10 |
 | UI end-to-end (Playwright, Chromium, WebGL via SwiftShader) | 17 | boot, presets, undo, import (real WebM), content-sniffing rejection, drag & drop, GLB import, persistence, crash recovery, export ZIP, shortcuts |
 | Typecheck | all 7 TS projects + `cargo clippy` clean | |
 
@@ -25,7 +25,7 @@ Commands: see [`DEVELOPMENT.md`](DEVELOPMENT.md).
 | Binary `.ypt` | Produced by `CodeWalker.Core` 1.0.0.0 on .NET 8 for **legacy (RSC7 v68)** and **gen9 (v71)**; read back and compared with the XML. All **30 presets** export through it |
 | Lua | `luac 5.4 -p` syntax; behavioural harness with a mocked FiveM runtime (21 scenarios: no duplicate loops, cleanup on switch/death/restart, rate limit, asset-load failure retry, sync validation, injection attempts); **mutation testing**: 9 injected bugs, all caught |
 | Particle simulation | Exact integration of constant acceleration + linear drag matches the analytic solution; deterministic by seed; flipbook frame selection; live edits re-simulate to the same state as a fresh run |
-| FFmpeg handling | Frame count/order/content exact on a lossless fixture; time window, frame cap, skip, resize/aspect, blend interpolation, progress events; GIF and WebM through forced demuxers; corrupt/hostile inputs; concurrent extractions; cancel and timeout kill the whole process tree (regression test for a grandchild holding the pipes). VP8/VP9 *alpha* decoding is implemented (libvpx decoders) but not covered by a test |
+| FFmpeg handling | Frame count/order/content exact on a lossless fixture; time window, frame cap, skip, resize/aspect, blend interpolation, progress events; GIF and WebM through forced demuxers; corrupt/hostile inputs; concurrent extractions; cancel and timeout kill the whole process tree (regression test for a grandchild holding the pipes). A VP9 WebM with an alpha channel keeps its transparency (probe + extracted PNG alpha checked) |
 | Desktop shell | The real Tauri binary was launched under Xvfb (WebKitGTK), booted the UI and answered its first IPC call (`tool_status`); 10 IPC tests drive the actual command table (camelCase args, raw bodies, errors, FFmpeg extraction through a channel, CodeWalker conversion); the VFXW wire format is byte-identical in Rust and TypeScript |
 | UI | 17 Chromium end-to-end tests; no test is allowed to log a console error |
 | Safety | Hostile inputs: path traversal, `//` and UNC paths, Lua/XML injection, XXE/DTD, tampered bundles (hash/format), text files named `.png`, oversize/hostile wire lengths |

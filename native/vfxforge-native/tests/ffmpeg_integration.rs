@@ -283,6 +283,34 @@ fn gif_and_webm_inputs_extract_through_their_forced_demuxers() {
     assert_eq!(extract(&r).unwrap().frames.len(), 8);
 }
 
+/// A VP9 WebM with an alpha channel: ffprobe must report it and the extracted PNGs must keep it.
+/// (Without libvpx as the *decoder* FFmpeg's native vp9 decoder silently drops the alpha plane.)
+#[test]
+fn vp9_webm_alpha_survives_extraction() {
+    let dir = tempfile::tempdir().unwrap();
+    let webm = dir.path().join("alpha.webm");
+    // left half opaque red, right half fully transparent
+    let st = Command::new(tools().ffmpeg)
+        .args(["-hide_banner", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=red:s=64x48:r=8:d=1,format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(X,32),255,0)'"])
+        .args(["-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", "-auto-alt-ref", "0", "-b:v", "1M"])
+        .arg(&webm)
+        .status()
+        .expect("spawn ffmpeg");
+    assert!(st.success(), "could not generate the alpha WebM fixture (libvpx-vp9 missing?)");
+    let info = probe(&tools().ffprobe, &webm).unwrap();
+    assert!(info.has_alpha, "ffprobe must report the alpha channel: {info:?}");
+    let mut r = req(&webm, &dir.path().join("out"));
+    r.fps = 8.0;
+    let res = extract(&r).unwrap();
+    let decoder = png::Decoder::new(std::io::BufReader::new(std::fs::File::open(&res.frames[0]).unwrap()));
+    let mut reader = decoder.read_info().unwrap();
+    let mut buf = vec![0; reader.output_buffer_size().unwrap()];
+    let fi = reader.next_frame(&mut buf).unwrap();
+    let px = |x: usize, y: usize| buf[(y * fi.width as usize + x) * 4 + 3];
+    assert!(px(8, 24) > 240, "opaque half must stay opaque, got alpha {}", px(8, 24));
+    assert!(px(56, 24) < 16, "transparent half must stay transparent, got alpha {}", px(56, 24));
+}
+
 #[test]
 fn concurrent_extractions_do_not_interfere() {
     let dir = tempfile::tempdir().unwrap();
