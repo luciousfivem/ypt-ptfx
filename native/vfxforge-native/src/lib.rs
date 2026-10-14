@@ -12,8 +12,10 @@ pub mod probe;
 pub mod process;
 pub mod project;
 pub mod sanitize;
+pub mod service;
 pub mod sniff;
 pub mod tools;
+pub mod wire;
 
 pub use error::{Error, Result};
 

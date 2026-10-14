@@ -217,7 +217,7 @@ function ExportBody() {
 
           <div className="rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-[11.5px] leading-relaxed text-warn">
             <p className="mb-0.5 flex items-center gap-1.5 font-semibold"><AlertTriangle className="size-3.5" aria-hidden /> Not yet verified in the game</p>
-            Everything above was checked structurally (schema, texture formats, CodeWalker round-trip, Lua syntax and behaviour with a mocked runtime). Whether the engine <em>renders</em> the effect, and how a flipbook frame id maps to a UV rectangle, can only be confirmed by running GTA V/FiveM. Follow <code>FIVEM_TEST_CHECKLIST.md</code> inside the ZIP.
+            Everything above was checked structurally (schema, texture formats, CodeWalker round-trip, Lua syntax and behaviour with a mocked runtime). Whether the engine <em>renders</em> the effect, and how a flipbook frame id maps to a UV rectangle, can only be confirmed by running GTA V/FiveM. Follow the in-game checklist at the end of the README inside the ZIP (the full version is <code>docs/FIVEM_TEST_CHECKLIST.md</code>).
           </div>
         </section>
       )}

@@ -1,11 +1,23 @@
 import { UploadCloud } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { importFiles } from '../services/actions';
+import { maybeSvc } from '../services/app';
 
 /** Window-wide drag & drop import. Files are validated by content in the platform layer, never by extension. */
 export function DropOverlay() {
   const [active, setActive] = useState(false);
   useEffect(() => {
+    // desktop: the native window reports drops (the web engine's own drag & drop never fires there)
+    const platform = maybeSvc()?.platform;
+    if (platform?.onFilesDropped) {
+      let off: (() => void) | undefined;
+      let dead = false;
+      void platform.onFilesDropped((paths) => void importFiles(paths), setActive).then((u) => (dead ? u() : (off = u)));
+      return () => {
+        dead = true;
+        off?.();
+      };
+    }
     let depth = 0;
     const hasFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files');
     const enter = (e: DragEvent) => {

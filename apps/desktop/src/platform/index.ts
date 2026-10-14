@@ -10,8 +10,8 @@ export async function getPlatform(): Promise<Platform> {
   if (instance) return instance;
   const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
   if (inTauri) {
-    const { createTauriPlatform } = await import('./tauri');
-    instance = await createTauriPlatform();
+    const [{ createTauriPlatform }, { useProject }] = await Promise.all([import('./tauri'), import('../state/project')]);
+    instance = await createTauriPlatform({ activeProjectId: () => useProject.getState().project.id });
   } else {
     instance = createBrowserPlatform();
   }

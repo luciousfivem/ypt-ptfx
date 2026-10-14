@@ -58,6 +58,33 @@ export interface ProjectStore {
   clearAutosave(id: string): Promise<void>;
 }
 
+export interface ToolPaths {
+  ffmpeg: string | null;
+  ffprobe: string | null;
+  dotnet: string | null;
+  dll: string | null;
+}
+
+export interface ToolEntry {
+  available: boolean;
+  path: string | null;
+  version: string | null;
+  detail: string;
+}
+
+export interface ToolsStatus {
+  ffmpeg: ToolEntry;
+  ffprobe: ToolEntry;
+  bridge: ConverterStatus;
+  paths: ToolPaths;
+}
+
+/** Desktop only: where FFmpeg and the CodeWalker converter bridge live. */
+export interface ToolsApi {
+  status(): Promise<ToolsStatus>;
+  setPaths(paths: ToolPaths): Promise<ToolsStatus>;
+}
+
 export interface Platform {
   readonly kind: 'tauri' | 'browser';
   readonly label: string;
@@ -75,4 +102,13 @@ export interface Platform {
   saveFile(suggestedName: string, bytes: Uint8Array, mime: string): Promise<'saved' | 'cancelled'>;
   /** Opens a file picker. Desktop returns native paths, the browser returns File objects. */
   pickFiles(opts: { accept: string[]; multiple?: boolean; title?: string }): Promise<Array<File | string>>;
+  /** Desktop only. */
+  tools?: ToolsApi;
+  /**
+   * Desktop only: the native window reports file drops (the web engine's own drag & drop is
+   * intercepted). `onHover` tells the UI to show its drop target. Returns an unsubscribe function.
+   */
+  onFilesDropped?(cb: (paths: string[]) => void, onHover?: (active: boolean) => void): Promise<() => void>;
+  /** Re-reads capabilities (e.g. after tool paths changed). */
+  refresh?(): Promise<void>;
 }

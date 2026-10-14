@@ -1,6 +1,7 @@
 import { FolderOpen, History, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Badge, Button, Dialog, EmptyState, Field, Kbd, NumberField, Segmented, SelectField, SwitchField, TextField } from '../components/ui';
+import { DesktopTools } from './DesktopTools';
 import { newProject, openBundle, openProject } from '../services/actions';
 import { svc } from '../services/app';
 import type { ConverterStatus, ProjectSummary } from '../platform';
@@ -49,6 +50,7 @@ export function SettingsDialog() {
           </ul>
           {conv && !conv.available && <p className="text-[11.5px] leading-snug text-dim">{conv.detail}</p>}
         </div>
+        {platform?.tools && <DesktopTools onChanged={() => void svc().platform.converterStatus().then(setConv)} />}
       </div>
     </Dialog>
   );

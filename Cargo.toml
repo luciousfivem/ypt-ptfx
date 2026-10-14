@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["native/vfxforge-native"]
+members = ["native/vfxforge-native", "apps/desktop/src-tauri"]
 
 [profile.release]
 opt-level = 3

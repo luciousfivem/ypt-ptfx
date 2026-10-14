@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions of the main VFXForge window: core APIs and the native open/save dialogs. All file access goes through VFXForge's own validated commands, not a broad filesystem scope.",
+  "windows": ["main"],
+  "permissions": ["core:default", "dialog:allow-open", "dialog:allow-save", "dialog:allow-message"]
+}

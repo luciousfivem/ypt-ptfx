@@ -25,6 +25,7 @@
     "@radix-ui/react-toggle-group": "^1.2.1",
     "@radix-ui/react-tooltip": "^1.4.1",
     "@tauri-apps/api": "^2.12.3",
+    "@tauri-apps/plugin-dialog": "^2.8.2",
     "@vfxforge/core": "workspace:*",
     "@vfxforge/export": "workspace:*",
     "@vfxforge/fivem": "workspace:*",
