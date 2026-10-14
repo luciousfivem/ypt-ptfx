@@ -1,0 +1,16 @@
+node_modules/
+dist/
+target/
+bin/
+obj/
+.vite/
+coverage/
+*.log
+.DS_Store
+.vfxforge-cache/
+test-results/
+playwright-report/
+apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/target/
+tools/ypt-bridge/out/
+.codewalker/

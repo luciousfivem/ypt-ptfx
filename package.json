@@ -1,0 +1,24 @@
+{
+  "name": "vfxforge",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "VFXForge — FiveM weapon particle-effects studio",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r --no-bail run typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "pnpm --filter @vfxforge/desktop dev",
+    "build": "pnpm --filter @vfxforge/desktop build"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
+  }
+}
