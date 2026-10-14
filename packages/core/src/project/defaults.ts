@@ -87,6 +87,7 @@ export function createClip(name: string, assetId: string | null): Clip {
     },
     crop: { auto: false, margin: 2 },
     procedural: null,
+    generator: null,
     frames: null,
   };
 }

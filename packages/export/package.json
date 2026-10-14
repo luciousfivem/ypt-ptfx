@@ -15,6 +15,7 @@
     "@vfxforge/core": "workspace:*",
     "@vfxforge/fivem": "workspace:*",
     "@vfxforge/media": "workspace:*",
+    "@vfxforge/particles": "workspace:*",
     "@vfxforge/ypt": "workspace:*"
   },
   "devDependencies": {

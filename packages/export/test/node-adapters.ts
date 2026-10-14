@@ -21,7 +21,7 @@ export const bridgeAvailable = existsSync(BRIDGE) && spawnSync('dotnet', ['--ver
 export class CliFrameSource implements FrameSource {
   constructor(private readonly resolveAsset: (project: Project, assetId: string) => string) {}
 
-  async getFrames(clip: Clip, project: Project): Promise<RgbaImage[]> {
+  async getFrames(clip: Clip, project: Project, _signal?: AbortSignal): Promise<RgbaImage[]> {
     if (!clip.assetId) throw new Error(`Clip "${clip.name}" has no source asset.`);
     const input = this.resolveAsset(project, clip.assetId);
     const asset = project.assets[clip.assetId]!;

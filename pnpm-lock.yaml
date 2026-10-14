@@ -41,6 +41,9 @@ importers:
       '@vfxforge/media':
         specifier: workspace:*
         version: link:../media
+      '@vfxforge/particles':
+        specifier: workspace:*
+        version: link:../particles
       '@vfxforge/ypt':
         specifier: workspace:*
         version: link:../ypt
@@ -75,6 +78,15 @@ importers:
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
+
+  packages/particles:
+    dependencies:
+      '@vfxforge/core':
+        specifier: workspace:*
+        version: link:../core
+      '@vfxforge/media':
+        specifier: workspace:*
+        version: link:../media
 
   packages/ypt:
     dependencies:

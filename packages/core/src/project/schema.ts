@@ -91,6 +91,21 @@ export const ProceduralSchema = z.object({
   seed: int.min(0).max(0xffffffff),
 });
 
+export const SPRITE_KINDS = ['fire', 'smoke', 'lightning', 'sparks', 'plasma', 'runes', 'mist', 'glow', 'holo', 'embers'] as const;
+export type SpriteKind = (typeof SPRITE_KINDS)[number];
+
+/** Procedurally generated frames (no source media): used by the preset library. */
+export const GeneratorSchema = z.object({
+  kind: z.enum(SPRITE_KINDS),
+  /** Colour ramp, dark/outer -> bright/core. 0..1 sRGB. */
+  palette: z.array(z.tuple([unit, unit, unit])).min(2).max(6),
+  frames: int.min(1).max(64),
+  size: int.min(16).max(512),
+  seed: int.min(0).max(0xffffffff),
+  intensity: num.min(0.1).max(2),
+});
+export type Generator = z.infer<typeof GeneratorSchema>;
+
 export const KeyingModeSchema = z.enum(['none', 'black', 'white', 'chroma']);
 
 export const ClipSchema = z.object({
@@ -139,6 +154,8 @@ export const ClipSchema = z.object({
     margin: int.min(0).max(256),
   }),
   procedural: ProceduralSchema.nullable(),
+  /** When set, frames are generated procedurally instead of read from `assetId`. */
+  generator: GeneratorSchema.nullable(),
   /** Explicit ordering after extraction/processing. `null` = natural order. */
   frames: z
     .array(z.object({ src: int.min(0), hold: num.min(0.05).max(64) }))
@@ -364,6 +381,7 @@ export function checkIntegrity(p: Project): string[] {
   for (const [key, c] of Object.entries(p.clips)) {
     if (c.id !== key) errors.push(`clips.${key}: id mismatch`);
     if (c.assetId !== null && !p.assets[c.assetId]) errors.push(`clips.${key}: missing asset ${c.assetId}`);
+    if (c.assetId !== null && c.generator !== null) errors.push(`clips.${key}: a clip cannot have both a source asset and a generator`);
   }
   for (const [key, s] of Object.entries(p.sheets)) {
     if (s.id !== key) errors.push(`sheets.${key}: id mismatch`);
