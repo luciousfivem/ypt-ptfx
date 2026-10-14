@@ -21,17 +21,16 @@ const BACKDROP: Record<Backdrop, string> = { checker: 'checker checker-anim', bl
 function useActiveSheetId(): string | null {
   const selection = useUi((s) => s.selection);
   const sheets = useProject((s) => s.project.sheets);
+  const emitterSheet = useProject((s) => (selection.kind === 'emitter' ? s.project.effects[selection.effectId]?.emitters.find((e) => e.id === selection.id)?.sheetId : null));
   return useMemo(() => {
     if (selection.kind === 'sheet' && sheets[selection.id]) return selection.id;
     if (selection.kind === 'clip') {
       const s = Object.values(sheets).find((x) => x.clipId === selection.id);
       if (s) return s.id;
     }
-    if (selection.kind === 'emitter') {
-      // fall through to the emitter's sheet below
-    }
+    if (emitterSheet && sheets[emitterSheet]) return emitterSheet;
     return Object.keys(sheets)[0] ?? null;
-  }, [selection, sheets]);
+  }, [selection, sheets, emitterSheet]);
 }
 
 export function SpriteEditor() {

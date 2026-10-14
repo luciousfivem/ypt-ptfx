@@ -177,3 +177,30 @@ describe('engine + derived service', () => {
     c2.dispose();
   });
 });
+
+describe('raw frame lifetime', () => {
+  it('releases superseded raw frames in the worker when a sheet moves to a new extraction', async () => {
+    const counter = { extracts: 0 };
+    const [a, b] = pair();
+    const engine = createEngine({ getFrames: async () => [], convert: async () => { throw new Error('x'); }, stage: () => undefined });
+    serve<ReturnType<typeof createEngine>, EngineHost>(b, () => engine);
+    const client = new EngineClient(fakePlatform(counter), a);
+    resetDerived();
+    useProject.getState().load(projectWithPreset());
+    const stop = startDerivedService(client, { debounceMs: 5 });
+    const id = Object.keys(useProject.getState().project.sheets)[0]!;
+    await until(() => useDerived.getState().sheets[id]?.status === 'ready');
+    const clipId = useProject.getState().project.sheets[id]!.clipId;
+    const keyOf = () => rawKey(useProject.getState().project, useProject.getState().project.clips[clipId]!, previewClip(useProject.getState().project.clips[clipId]!));
+    const first = keyOf();
+    expect(engine.hasRaw(first)).toBe(true);
+    editProject('seed', (d) => {
+      d.clips[clipId]!.generator!.seed = 1234;
+    });
+    await until(() => counter.extracts === 2 && useDerived.getState().sheets[id]?.status === 'ready');
+    await until(() => !engine.hasRaw(first));
+    expect(engine.hasRaw(keyOf())).toBe(true);
+    stop();
+    client.dispose();
+  });
+});

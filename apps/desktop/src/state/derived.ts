@@ -50,6 +50,8 @@ interface Built {
 export function startDerivedService(engine: EngineClient, opts: { debounceMs?: number } = {}): () => void {
   const debounceMs = opts.debounceMs ?? 120;
   const built = new Map<string, Built>();
+  /** Which raw-frame set each sheet currently uses, so superseded ones can be released from the worker. */
+  const rawKeys = new Map<string, string>();
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   const running = new Set<string>();
   let queue: Promise<void> = Promise.resolve();
@@ -71,6 +73,9 @@ export function startDerivedService(engine: EngineClient, opts: { debounceMs?: n
     try {
       patch(id, { status: 'extracting', progress: null, error: null });
       const key = await engine.ensureRaw(project, clip, (p) => patch(id, { status: 'extracting', progress: p.total ? p.done / p.total : null }));
+      const previous = rawKeys.get(id);
+      rawKeys.set(id, key);
+      if (previous && previous !== key && ![...rawKeys.values()].includes(previous)) void engine.dropRaw(previous).catch(() => undefined);
       patch(id, { status: 'processing', progress: null });
       const preview = await engine.buildSheet(key, clip, sheet, target);
       if (stopped) return;
@@ -124,6 +129,9 @@ export function startDerivedService(engine: EngineClient, opts: { debounceMs?: n
         for (const id of gone) {
           delete next[id];
           built.delete(id);
+          const key = rawKeys.get(id);
+          rawKeys.delete(id);
+          if (key && ![...rawKeys.values()].includes(key)) void engine.dropRaw(key).catch(() => undefined);
         }
         return { sheets: next };
       });

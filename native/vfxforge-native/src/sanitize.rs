@@ -85,6 +85,31 @@ pub fn resolve_within(base: &Path, rel: &str) -> Result<PathBuf> {
     Ok(joined)
 }
 
+/// Windows' `canonicalize` returns "verbatim" paths (`\\?\C:\dir\file`, `\\?\UNC\server\share\file`).
+/// Many tools — FFmpeg's `file:` protocol among them — do not understand that prefix, so it is removed
+/// again when it is purely cosmetic. Pure string logic, so it is unit-tested on every platform.
+pub fn strip_verbatim_prefix(path: &str) -> String {
+    if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{rest}");
+    }
+    if let Some(rest) = path.strip_prefix(r"\\?\") {
+        let b = rest.as_bytes();
+        if b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && b[2] == b'\\' {
+            return rest.to_string();
+        }
+    }
+    path.to_string()
+}
+
+fn simplify_canonical(p: PathBuf) -> PathBuf {
+    if cfg!(windows) {
+        if let Some(s) = p.to_str() {
+            return PathBuf::from(strip_verbatim_prefix(s));
+        }
+    }
+    p
+}
+
 /// Requires an absolute, existing, regular file (after following symlinks) and returns its
 /// canonical path. Used for every user-selected input before it is handed to a subprocess.
 pub fn require_existing_file(path: &Path) -> Result<PathBuf> {
@@ -94,9 +119,10 @@ pub fn require_existing_file(path: &Path) -> Result<PathBuf> {
             path.display()
         )));
     }
-    let canon = path
-        .canonicalize()
-        .map_err(|_| Error::NotFound(path.display().to_string()))?;
+    let canon = simplify_canonical(
+        path.canonicalize()
+            .map_err(|_| Error::NotFound(path.display().to_string()))?,
+    );
     let meta = std::fs::metadata(&canon).map_err(|e| Error::io("reading file metadata", e))?;
     if !meta.is_file() {
         return Err(Error::InvalidParam(format!(
@@ -118,6 +144,17 @@ pub fn reject_traversal(path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn verbatim_windows_prefixes_are_removed_only_when_cosmetic() {
+        assert_eq!(strip_verbatim_prefix(r"\\?\C:\Users\me\clip.mp4"), r"C:\Users\me\clip.mp4");
+        assert_eq!(strip_verbatim_prefix(r"\\?\UNC\server\share\clip.mp4"), r"\\server\share\clip.mp4");
+        // not a drive path: leave it alone (it may genuinely need the verbatim form)
+        assert_eq!(strip_verbatim_prefix(r"\\?\GLOBALROOT\x"), r"\\?\GLOBALROOT\x");
+        assert_eq!(strip_verbatim_prefix(r"\\?\C:"), r"\\?\C:");
+        assert_eq!(strip_verbatim_prefix("/home/me/clip.mp4"), "/home/me/clip.mp4");
+        assert_eq!(strip_verbatim_prefix(r"C:\plain\path"), r"C:\plain\path");
+    }
 
     #[test]
     fn filenames_are_sanitised() {
