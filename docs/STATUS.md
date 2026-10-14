@@ -8,8 +8,8 @@ stated. Nothing here was run inside GTA V or FiveM, because that cannot be done 
 
 | Suite | Count | What it exercises |
 |---|---|---|
-| TypeScript unit/integration (vitest) | 358 (+1 opt-in generator) | core 34 · media 57 · ypt 55 · fivem 48 · export 49 · particles 73 · desktop 42 |
-| Rust (`cargo test --workspace`) | 82 | native 55 unit · FFmpeg integration 13 · CodeWalker converter integration 4 · Tauri IPC 10 |
+| TypeScript unit/integration (vitest) | 359 (+1 opt-in generator) | core 34 · media 57 · ypt 55 · fivem 48 · export 49 · particles 73 · desktop 43 |
+| Rust (`cargo test --workspace`) | 83 | native 56 unit · FFmpeg integration 13 · CodeWalker converter integration 4 · Tauri IPC 10 |
 | UI end-to-end (Playwright, Chromium, WebGL via SwiftShader) | 17 | boot, presets, undo, import (real WebM), content-sniffing rejection, drag & drop, GLB import, persistence, crash recovery, export ZIP, shortcuts |
 | Typecheck | all 7 TS projects + `cargo clippy` clean | |
 
