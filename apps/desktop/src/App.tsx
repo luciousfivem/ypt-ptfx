@@ -35,6 +35,19 @@ function safeStorage() {
 export function App() {
   const [boot, setBoot] = useState<'loading' | 'ready' | { error: string }>('loading');
 
+  // nothing fails silently: an unexpected rejection or error becomes a visible message
+  useEffect(() => {
+    const message = (e: unknown) => (e instanceof Error ? e.message : typeof e === 'string' ? e : 'An unexpected error occurred.');
+    const onRejection = (ev: PromiseRejectionEvent) => {
+      const reason = ev.reason as { name?: string } | undefined;
+      if (reason?.name === 'AbortError') return; // cancelled work is not an error
+      console.error('Unhandled rejection', ev.reason);
+      useUi.getState().toast('error', message(ev.reason));
+    };
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => window.removeEventListener('unhandledrejection', onRejection);
+  }, []);
+
   useEffect(() => {
     let stop: (() => void) | undefined;
     let cancelled = false;

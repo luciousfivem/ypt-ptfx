@@ -415,13 +415,34 @@ const PAINTERS: Record<SpriteKind, Painter> = {
   holo,
 };
 
+/**
+ * Fades alpha to zero over the outer ~7% of the frame. A flipbook sprite whose art touches its cell
+ * edge draws a visible straight cut on the billboard (and bleeds into the neighbouring cell under
+ * bilinear filtering), so every generated sprite is guaranteed a transparent border.
+ */
+export function fadeEdges(img: RgbaImage): RgbaImage {
+  const { width: w, height: h } = img;
+  const m = Math.max(2, Math.round(Math.min(w, h) * 0.07));
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const d = Math.min(x, y, w - 1 - x, h - 1 - y);
+      if (d >= m) continue;
+      const t = d / m;
+      const k = t * t * (3 - 2 * t); // smoothstep; exactly 0 on the outermost pixel
+      const o = (y * w + x) * 4 + 3;
+      img.data[o] = img.data[o]! * k;
+    }
+  }
+  return img;
+}
+
 /** Generates `g.frames` square RGBA frames. Deterministic for a given generator. */
 export function generateSpriteFrames(g: Generator, onFrame?: (done: number, total: number) => void): RgbaImage[] {
   const paint = PAINTERS[g.kind];
   const frames: RgbaImage[] = [];
   for (let f = 0; f < g.frames; f++) {
     // lightning re-rolls its bolts every frame; others use the shared seed for coherence
-    frames.push(paint(g, f, new Rng((g.seed ^ Math.imul(f + 1, 0x9e3779b1)) >>> 0)));
+    frames.push(fadeEdges(paint(g, f, new Rng((g.seed ^ Math.imul(f + 1, 0x9e3779b1)) >>> 0))));
     onFrame?.(f + 1, g.frames);
   }
   return frames;

@@ -1,5 +1,5 @@
 import { PRESET_CATEGORIES_EXPECTED } from './helpers';
-import { parseProject, createProject, startsLooped, type Generator } from '@vfxforge/core';
+import { parseProject, createProject, startsLooped, SPRITE_KINDS, type Generator } from '@vfxforge/core';
 import { meanAbsDiff, type RgbaImage } from '@vfxforge/media';
 import { describe, expect, it } from 'vitest';
 import { PRESETS, PRESET_CATEGORIES, ParticleSim, createInstanceBuffers, findPreset, generateSpriteFrames, instantiatePreset, presetsByCategory } from '../src';
@@ -154,5 +154,25 @@ describe('procedural sprite art', () => {
     const t0 = performance.now();
     generateSpriteFrames({ ...gen('purple_flames'), size: 128, frames: 16 });
     expect(performance.now() - t0).toBeLessThan(4000);
+  });
+});
+
+
+describe('sprite borders', () => {
+  it.each(SPRITE_KINDS)('%s: every frame has a fully transparent border and keeps its interior', (kind) => {
+    const frames = generateSpriteFrames({ kind, palette: [[0.1, 0, 0.2], [1, 0.6, 0.2], [1, 1, 1]], frames: 4, size: 64, seed: 11, intensity: 1.3 });
+    for (const f of frames) {
+      let borderMax = 0;
+      let interiorMax = 0;
+      for (let y = 0; y < f.height; y++) {
+        for (let x = 0; x < f.width; x++) {
+          const a = f.data[(y * f.width + x) * 4 + 3]!;
+          if (x === 0 || y === 0 || x === f.width - 1 || y === f.height - 1) borderMax = Math.max(borderMax, a);
+          else interiorMax = Math.max(interiorMax, a);
+        }
+      }
+      expect(borderMax).toBe(0);
+      expect(interiorMax).toBeGreaterThan(40); // the art itself survives the fade
+    }
   });
 });
