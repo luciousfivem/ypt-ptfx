@@ -112,10 +112,13 @@ export function createClipFromAsset(asset: Asset): { clip: Clip; sheet: Sheet } 
     const dur = asset.info?.durationSec ?? 1;
     clip.extract.maxFrames = 16;
     clip.extract.fps = Math.max(1, Math.min(30, Math.round((16 / Math.max(0.1, dur)) * 100) / 100));
+    // effect footage is usually shot on black; footage that already has transparency needs no keying
     clip.keying.mode = asset.info?.hasAlpha ? 'none' : 'black';
   } else {
-    clip.extract.maxFrames = asset.info?.frameCount === 1 ? 1 : 64;
-    clip.keying.mode = asset.info?.hasAlpha ? 'none' : 'black';
+    const animated = asset.info?.frameCount !== 1;
+    clip.extract.maxFrames = animated ? 64 : 1;
+    // a still picture is left untouched (keying a photo would eat its dark areas); animations on black are keyed
+    clip.keying.mode = animated && !asset.info?.hasAlpha ? 'black' : 'none';
   }
   const sheet = createSheet(clip.name, clip.id);
   const frames = Math.max(1, clip.extract.maxFrames);

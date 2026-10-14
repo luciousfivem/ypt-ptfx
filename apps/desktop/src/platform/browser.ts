@@ -79,6 +79,20 @@ function targetSize(srcW: number, srcH: number, clip: Clip): { w: number; h: num
   return { w: srcW, h: srcH };
 }
 
+/** True when any pixel of a (down-scaled) frame is not fully opaque. Reads decoded pixels, so it is about the actual picture, not the container. */
+function hasTransparency(source: CanvasImageSource, w: number, h: number): boolean {
+  const size = 64;
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = Math.max(1, Math.round((size * h) / Math.max(1, w)));
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return false;
+  ctx.drawImage(source, 0, 0, c.width, c.height);
+  const d = ctx.getImageData(0, 0, c.width, c.height).data;
+  for (let i = 3; i < d.length; i += 4) if (d[i]! < 250) return true;
+  return false;
+}
+
 function once(target: EventTarget, ok: string, bad = 'error', ms = 15000): Promise<void> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => cleanup(new Error(`Timed out waiting for the video (${ok}).`)), ms);
@@ -346,13 +360,13 @@ export function createBrowserPlatform(): Platform {
       let info: Asset['info'] = null;
       if (sniffed.category === 'image') {
         const bmp = await bitmapFrom(new Blob([bytes.buffer as ArrayBuffer], { type: sniffed.mime }));
-        info = { width: bmp.width, height: bmp.height, durationSec: null, fps: null, frameCount: sniffed.kind === 'gif' || sniffed.kind === 'apng' || sniffed.kind === 'webp' ? null : 1, hasAlpha: sniffed.kind !== 'jpeg', codec: sniffed.kind };
+        info = { width: bmp.width, height: bmp.height, durationSec: null, fps: null, frameCount: sniffed.kind === 'gif' || sniffed.kind === 'apng' || sniffed.kind === 'webp' ? null : 1, hasAlpha: sniffed.kind !== 'jpeg' && hasTransparency(bmp, bmp.width, bmp.height), codec: sniffed.kind };
         bmp.close();
       } else if (sniffed.category === 'video') {
         const url = URL.createObjectURL(new Blob([bytes.buffer as ArrayBuffer], { type: sniffed.mime }));
         try {
           const v = await loadVideo(url);
-          info = { width: v.videoWidth, height: v.videoHeight, durationSec: Number.isFinite(v.duration) ? v.duration : null, fps: null, frameCount: null, hasAlpha: sniffed.kind === 'webm', codec: sniffed.kind };
+          info = { width: v.videoWidth, height: v.videoHeight, durationSec: Number.isFinite(v.duration) ? v.duration : null, fps: null, frameCount: null, hasAlpha: hasTransparency(v, v.videoWidth, v.videoHeight), codec: sniffed.kind };
         } finally {
           URL.revokeObjectURL(url);
         }

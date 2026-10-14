@@ -12,8 +12,10 @@ import * as RTooltip from '@radix-ui/react-tooltip';
 import * as RToggleGroup from '@radix-ui/react-toggle-group';
 import { Check, ChevronDown, ChevronRight, Loader2, X } from 'lucide-react';
 import {
+  createContext,
   forwardRef,
   useCallback,
+  useContext,
   useEffect,
   useId,
   useRef,
@@ -22,6 +24,17 @@ import {
   type ReactNode,
 } from 'react';
 import { cn } from '../../lib/cn';
+
+/* ------------------------------------------------------- field labelling */
+
+/** The visible label of the enclosing <Field>, so every control inside gets a real accessible name. */
+const FieldLabel = createContext<string | null>(null);
+const ariaFirst = (own: string | undefined, field: string | null) => field ?? own;
+const useFieldLabel = (own?: string, suffix?: string): string | undefined => {
+  const field = useContext(FieldLabel);
+  const parts = [ariaFirst(own, field), suffix].filter((x): x is string => !!x);
+  return parts.length ? parts.join(' ') : undefined;
+};
 
 /* ----------------------------------------------------------------- tooltip */
 
@@ -140,17 +153,19 @@ export function Section({ title, children, defaultOpen = true, actions }: { titl
 }
 
 export function Field({ label, hint, children, className }: { label: ReactNode; hint?: ReactNode; children: ReactNode; className?: string }) {
-  const id = useId();
+  const text = typeof label === 'string' ? label : null;
   return (
-    <div className={cn('grid grid-cols-[92px_1fr] items-center gap-2', className)}>
-      <label htmlFor={id} className="truncate text-[11.5px] text-muted" title={typeof label === 'string' ? label : undefined}>
-        {label}
-      </label>
-      <div className="min-w-0" id={id}>
-        {children}
-        {hint && <p className="mt-0.5 text-[10.5px] leading-snug text-dim">{hint}</p>}
+    <FieldLabel.Provider value={text}>
+      <div className={cn('grid grid-cols-[92px_1fr] items-start gap-2', className)}>
+        <span className="truncate text-[11.5px] leading-7 text-muted" title={text ?? undefined}>
+          {label}
+        </span>
+        <div className="min-w-0">
+          {children}
+          {hint && <p className="mt-0.5 text-[10.5px] leading-snug text-dim">{hint}</p>}
+        </div>
       </div>
-    </div>
+    </FieldLabel.Provider>
   );
 }
 
@@ -198,12 +213,16 @@ export interface NumberFieldProps {
   disabled?: boolean;
   /** Drag sensitivity in value-units per pixel; defaults to step. */
   scrub?: number;
+  /** Full accessible name; defaults to the enclosing Field's label plus `label`. */
+  ariaLabel?: string;
 }
 
 const roundTo = (v: number, p: number) => Math.round(v * 10 ** p) / 10 ** p;
 
 /** Numeric input with drag-to-scrub on its left grip, arrow-key stepping and clamped, validated entry. */
-export function NumberField({ value, onChange, min = -Infinity, max = Infinity, step = 1, precision, unit, label, className, disabled, scrub }: NumberFieldProps) {
+export function NumberField({ value, onChange, min = -Infinity, max = Infinity, step = 1, precision, unit, label, ariaLabel, className, disabled, scrub }: NumberFieldProps) {
+  const fromField = useFieldLabel(undefined, label);
+  const accessible = ariaLabel ?? fromField;
   const p = precision ?? (Number.isInteger(step) ? 0 : Math.min(6, String(step).split('.')[1]?.length ?? 2));
   const [draft, setDraft] = useState<string | null>(null);
   const drag = useRef<{ x: number; start: number } | null>(null);
@@ -245,7 +264,7 @@ export function NumberField({ value, onChange, min = -Infinity, max = Infinity, 
       </span>
       <input
         inputMode="decimal"
-        aria-label={label}
+        aria-label={accessible}
         disabled={disabled}
         value={draft ?? String(roundTo(value, p))}
         onFocus={(e) => e.currentTarget.select()}
@@ -276,6 +295,7 @@ export function NumberField({ value, onChange, min = -Infinity, max = Infinity, 
 }
 
 export function SliderField({ value, onChange, min, max, step = 0.01, unit, precision, scrub }: { value: number; onChange: (v: number, live: boolean) => void; min: number; max: number; step?: number; unit?: string; precision?: number; scrub?: number }) {
+  const name = useFieldLabel();
   return (
     <div className="flex items-center gap-2">
       <RSlider.Root
@@ -290,7 +310,7 @@ export function SliderField({ value, onChange, min, max, step = 0.01, unit, prec
         <RSlider.Track className="relative h-1 grow rounded-full bg-raised">
           <RSlider.Range className="absolute h-full rounded-full bg-accent" />
         </RSlider.Track>
-        <RSlider.Thumb aria-label="value" className="block size-3.5 rounded-full border-2 border-accent bg-fg shadow focus-visible:outline-2 focus-visible:outline-accent2" />
+        <RSlider.Thumb aria-label={name ? `${name} slider` : 'value'} className="block size-3.5 rounded-full border-2 border-accent bg-fg shadow focus-visible:outline-2 focus-visible:outline-accent2" />
       </RSlider.Root>
       <NumberField value={value} onChange={onChange} min={min} max={max} step={step} unit={unit} precision={precision} scrub={scrub ?? (max - min) / 200} className="w-[78px] shrink-0" />
     </div>
@@ -321,17 +341,20 @@ export function Vec3Field({ value, onChange, step = 0.01, precision, labels = ['
 }
 
 export function RangeField({ value, onChange, step = 0.01, min, max, unit, precision }: { value: { min: number; max: number }; onChange: (v: { min: number; max: number }, live: boolean) => void; step?: number; min?: number; max?: number; unit?: string; precision?: number }) {
+  const base = useFieldLabel();
   return (
     <div className="grid grid-cols-2 gap-1">
-      <NumberField label="↧" value={value.min} step={step} min={min} max={max} unit={unit} precision={precision} onChange={(n, live) => onChange({ min: n, max: Math.max(n, value.max) }, live)} />
-      <NumberField label="↥" value={value.max} step={step} min={min} max={max} unit={unit} precision={precision} onChange={(n, live) => onChange({ min: Math.min(n, value.min), max: n }, live)} />
+      <NumberField label="↧" ariaLabel={`${base ?? 'Range'} min`} value={value.min} step={step} min={min} max={max} unit={unit} precision={precision} onChange={(n, live) => onChange({ min: n, max: Math.max(n, value.max) }, live)} />
+      <NumberField label="↥" ariaLabel={`${base ?? 'Range'} max`} value={value.max} step={step} min={min} max={max} unit={unit} precision={precision} onChange={(n, live) => onChange({ min: Math.min(n, value.min), max: n }, live)} />
     </div>
   );
 }
 
 export function TextField({ value, onChange, placeholder, mono, maxLength, invalid, ...rest }: { value: string; onChange: (v: string) => void; placeholder?: string; mono?: boolean; maxLength?: number; invalid?: boolean } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
+  const name = useFieldLabel(rest['aria-label']);
   return (
     <input
+      aria-label={name}
       value={value}
       placeholder={placeholder}
       maxLength={maxLength}
@@ -345,12 +368,13 @@ export function TextField({ value, onChange, placeholder, mono, maxLength, inval
 
 /** Colour in 0..1 RGB(A) tuples (the project's native format). */
 export function ColorField({ value, onChange, alpha = false }: { value: readonly number[]; onChange: (v: number[], live: boolean) => void; alpha?: boolean }) {
+  const name = useFieldLabel();
   const hex = '#' + [0, 1, 2].map((i) => Math.round(Math.min(1, Math.max(0, value[i] ?? 0)) * 255).toString(16).padStart(2, '0')).join('');
   return (
     <div className="flex items-center gap-1.5">
       <input
         type="color"
-        aria-label="colour"
+        aria-label={name ? `${name} colour` : 'colour'}
         value={hex}
         onChange={(e) => {
           const h = e.target.value;
@@ -371,11 +395,12 @@ export function ColorField({ value, onChange, alpha = false }: { value: readonly
 }
 
 export function SwitchField({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
+  const name = useFieldLabel(label);
   return (
     <RSwitch.Root
       checked={checked}
       onCheckedChange={onChange}
-      aria-label={label}
+      aria-label={name}
       className="relative h-5 w-9 shrink-0 rounded-full border border-line bg-raised transition-colors data-[state=checked]:border-accent data-[state=checked]:bg-accent"
     >
       <RSwitch.Thumb className="block size-3.5 translate-x-[3px] rounded-full bg-fg transition-transform data-[state=checked]:translate-x-[19px] data-[state=checked]:bg-white" />
@@ -384,9 +409,10 @@ export function SwitchField({ checked, onChange, label }: { checked: boolean; on
 }
 
 export function SelectField<T extends string>({ value, onChange, options, label, className }: { value: T; onChange: (v: T) => void; options: ReadonlyArray<{ value: T; label: string; hint?: string }>; label?: string; className?: string }) {
+  const name = useFieldLabel(label);
   return (
     <RSelect.Root value={value} onValueChange={(v) => onChange(v as T)}>
-      <RSelect.Trigger aria-label={label} className={cn('flex h-7 w-full items-center justify-between gap-1 rounded-md border border-line bg-panel2 px-2 text-[12px] text-fg hover:border-accent/60 focus:border-accent', className)}>
+      <RSelect.Trigger aria-label={name} className={cn('flex h-7 w-full items-center justify-between gap-1 rounded-md border border-line bg-panel2 px-2 text-[12px] text-fg hover:border-accent/60 focus:border-accent', className)}>
         <RSelect.Value />
         <RSelect.Icon>
           <ChevronDown className="size-3.5 text-dim" aria-hidden />
@@ -412,8 +438,9 @@ export function SelectField<T extends string>({ value, onChange, options, label,
 }
 
 export function Segmented<T extends string>({ value, onChange, options, label }: { value: T; onChange: (v: T) => void; options: ReadonlyArray<{ value: T; label: ReactNode; title?: string }>; label?: string }) {
+  const name = useFieldLabel(label);
   return (
-    <RToggleGroup.Root type="single" value={value} aria-label={label} onValueChange={(v) => v && onChange(v as T)} className="flex rounded-md border border-line bg-panel2 p-0.5">
+    <RToggleGroup.Root type="single" value={value} aria-label={name} onValueChange={(v) => v && onChange(v as T)} className="flex rounded-md border border-line bg-panel2 p-0.5">
       {options.map((o) => (
         <RToggleGroup.Item key={o.value} value={o.value} title={o.title} className="flex h-6 flex-1 items-center justify-center rounded px-2 text-[11.5px] text-muted transition-colors hover:text-fg data-[state=on]:bg-accent data-[state=on]:text-white">
           {o.label}
@@ -454,10 +481,9 @@ export function Dialog({ open, onOpenChange, title, description, children, foote
               <RDialog.Title className="text-[14px] font-semibold text-fg">{title}</RDialog.Title>
               <RDialog.Description className="mt-0.5 text-[11.5px] text-muted">{description ?? ' '}</RDialog.Description>
             </div>
-            <RDialog.Close asChild>
-              <IconButton label="Close">
-                <X className="size-4" aria-hidden />
-              </IconButton>
+            {/* a plain button: a tooltip here would take the first Escape press when the dialog auto-focuses it */}
+            <RDialog.Close aria-label="Close" className="inline-flex size-7 items-center justify-center rounded-md text-muted transition-colors hover:bg-raised hover:text-fg">
+              <X className="size-4" aria-hidden />
             </RDialog.Close>
           </header>
           <div className="min-h-0 flex-1 overflow-auto px-5 py-4">{children}</div>
