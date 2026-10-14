@@ -1,0 +1,28 @@
+[package]
+name = "vfxforge-native"
+version = "0.1.0"
+edition = "2021"
+description = "VFXForge native services: media probing/extraction (FFmpeg), safe file I/O, converter bridge"
+license = "MIT"
+publish = false
+
+[lib]
+name = "vfxforge_native"
+path = "src/lib.rs"
+
+[[bin]]
+name = "vfxforge-cli"
+path = "src/bin/vfxforge-cli.rs"
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.11.1"
+thiserror = "2.0.21"
+
+[dev-dependencies]
+png = "0.18.1"
+tempfile = "3.27.0"
+
+[target."cfg(unix)".dependencies]
+libc = "0.2.190"
