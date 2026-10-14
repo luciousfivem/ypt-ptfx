@@ -324,10 +324,16 @@ pub fn extract_frames(
 mod tests {
     use super::*;
 
+    /// An absolute directory on every platform (`/tmp/x` has no drive letter on Windows, so `is_absolute()`
+    /// would be false there and `validate` would, correctly, reject it).
+    fn abs_dir() -> PathBuf {
+        std::env::temp_dir()
+    }
+
     fn req() -> ExtractRequest {
         ExtractRequest {
-            input: PathBuf::from("/tmp/in.mp4"),
-            out_dir: PathBuf::from("/tmp/out"),
+            input: abs_dir().join("in.mp4"),
+            out_dir: abs_dir().join("out"),
             start_sec: 0.0,
             end_sec: None,
             fps: 16.0,
@@ -431,7 +437,7 @@ mod tests {
             |r| r.width = Some(0),
             |r| r.height = Some(9000),
             |r| r.out_dir = PathBuf::from("relative/out"),
-            |r| r.out_dir = PathBuf::from("/tmp/../etc"),
+            |r| r.out_dir = abs_dir().join("..").join("etc"),
         ] {
             r = req();
             mutate(&mut r);
