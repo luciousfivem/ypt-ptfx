@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    VFXForge <-> CodeWalker converter bridge.
+
+    CodeWalker is GPL-licensed. This project therefore does NOT contain or redistribute any
+    CodeWalker code: it references YOUR OWN local checkout at build time and the resulting
+    binaries are for your own use. See docs/YPT_BRIDGE.md.
+
+      dotnet build -c Release -p:CodeWalkerCoreDir=/path/to/CodeWalker/CodeWalker.Core -o out
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>vfxforge-ypt-bridge</AssemblyName>
+    <RootNamespace>VfxForge.YptBridge</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Version>0.1.0</Version>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <Target Name="RequireCodeWalker" BeforeTargets="BeforeBuild"
+          Condition="'$(CodeWalkerCoreDir)' == '' Or !Exists('$(CodeWalkerCoreDir)/CodeWalker.Core.csproj')">
+    <Error Text="CodeWalkerCoreDir is not set or does not contain CodeWalker.Core.csproj. Clone CodeWalker yourself and build with: dotnet build -c Release -p:CodeWalkerCoreDir=/path/to/CodeWalker/CodeWalker.Core -o out   (see docs/YPT_BRIDGE.md)" />
+  </Target>
+
+  <ItemGroup Condition="'$(CodeWalkerCoreDir)' != '' And Exists('$(CodeWalkerCoreDir)/CodeWalker.Core.csproj')">
+    <ProjectReference Include="$(CodeWalkerCoreDir)/CodeWalker.Core.csproj" />
+  </ItemGroup>
+
+</Project>

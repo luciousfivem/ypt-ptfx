@@ -284,6 +284,11 @@ export const WeaponSchema = z.object({
   modelAssetId: z.string().max(64).nullable(),
   /** Uniform scale applied to an imported model so 1 unit = 1 metre. */
   modelScale: num.min(0.0001).max(1000),
+  /**
+   * XYZ Euler degrees that orient an imported model to the VFXForge convention:
+   * barrel toward -Z, up toward +Y (this converts exactly to GTA's barrel +Y / up +Z).
+   */
+  modelRotation: Vec3Schema,
   attachments: z.array(AttachmentPointSchema).max(64),
   environment: z.enum(ENVIRONMENTS),
 });

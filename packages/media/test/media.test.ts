@@ -599,6 +599,23 @@ describe('DDS', () => {
     expect(() => decodeDds(truncated)).toThrow(/Invalid DDS/);
   });
 
+  it('accepts the tightly-packed mip tail written by CodeWalker\'s exporter, with a warning', () => {
+    const padded = encodeDds(sprite, { format: 'BC3', mipmaps: true }); // 64x64: tail levels 4x4, 2x2, 1x1 (3 x 16 bytes)
+    // rebuild the tail as CodeWalker writes it: 4x4 -> 16 bytes, 2x2 -> 4 bytes, 1x1 -> 1 byte
+    const tailStart = padded.length - 48;
+    const tight = new Uint8Array(tailStart + 16 + 4 + 1);
+    tight.set(padded.subarray(0, tailStart + 16));
+    const v = validateDds(tight);
+    expect(v.valid).toBe(true);
+    expect(v.info!.tightTail).toBe(true);
+    expect(v.warnings.join(' ')).toMatch(/tightly packed/);
+    const dec = decodeDds(tight);
+    expect(dec.levels.map((l) => l.width)).toEqual([64, 32, 16, 8, 4]); // sub-4x4 tail not decoded
+    // anything else with the wrong size is still rejected
+    expect(validateDds(tight.subarray(0, tight.length - 3)).valid).toBe(false);
+    expect(validateDds(padded).info!.tightTail).toBe(false);
+  });
+
   it('warns (does not fail) on non power-of-two sizes', () => {
     const odd = encodeDds(solid(12, 12, 1, 2, 3), { format: 'BGRA8', mipmaps: false });
     const v = validateDds(odd);

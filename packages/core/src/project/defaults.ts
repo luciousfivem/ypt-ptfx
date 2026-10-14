@@ -41,6 +41,7 @@ export function createProject(name = 'Untitled Effect'): Project {
       preset: 'pistol',
       modelAssetId: null,
       modelScale: 1,
+      modelRotation: [0, 0, 0],
       attachments: [],
       environment: 'darkStudio',
     },

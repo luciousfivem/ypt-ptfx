@@ -14,3 +14,5 @@ apps/desktop/src-tauri/gen/
 apps/desktop/src-tauri/target/
 tools/ypt-bridge/out/
 .codewalker/
+tools/ypt-bridge/out/
+tools/ypt-bridge/obj/

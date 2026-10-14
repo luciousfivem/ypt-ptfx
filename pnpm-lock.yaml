@@ -42,6 +42,15 @@ importers:
         specifier: ^0.8.3
         version: 0.8.3
 
+  packages/ypt:
+    dependencies:
+      '@vfxforge/core':
+        specifier: workspace:*
+        version: link:../core
+      '@vfxforge/media':
+        specifier: workspace:*
+        version: link:../media
+
 packages:
 
   '@esbuild/aix-ppc64@0.28.2':

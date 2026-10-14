@@ -47,3 +47,16 @@ export function rotateEulerXYZ(v: Vec3, eulerDeg: Vec3): Vec3 {
   y = y3;
   return [x, y, z];
 }
+
+/**
+ * VFXForge scene space (three.js: right-handed, +Y up, barrel toward -Z) -> GTA V space
+ * (right-handed, +Z up, barrel toward +Y). This is a proper rotation (det = +1), not a mirror:
+ * (x, y, z) -> (x, -z, y).
+ */
+export function toGtaSpace(v: Vec3): Vec3 {
+  return [v[0], -v[2], v[1]];
+}
+
+export function fromGtaSpace(v: Vec3): Vec3 {
+  return [v[0], v[2], -v[1]];
+}

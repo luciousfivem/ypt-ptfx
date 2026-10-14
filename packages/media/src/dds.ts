@@ -63,6 +63,26 @@ export function expectedDdsSize(format: DdsPixelFormat, width: number, height: n
   return total;
 }
 
+/**
+ * Size of a mip level in the "tight tail" layout that CodeWalker's own DDS exporter writes:
+ * identical to the standard layout while both sides are >= 4 px, but levels smaller than a
+ * 4x4 block are NOT padded to a whole block (e.g. a 1x1 BC3 level is 1 byte, not 16).
+ */
+export function tightLevelByteSize(format: DdsPixelFormat, w: number, h: number): number {
+  if (format === 'BGRA8' || (w >= 4 && h >= 4)) return levelByteSize(format, w, h);
+  const bytesPerPixel = format === 'BC1' ? 0.5 : 1;
+  return Math.max(1, Math.ceil(w * h * bytesPerPixel));
+}
+
+export function expectedDdsSizeTight(format: DdsPixelFormat, width: number, height: number, mips: number): number {
+  let total = 4 + HEADER_SIZE;
+  for (let l = 0; l < mips; l++) {
+    const { w, h } = mipDimensions(width, height, l);
+    total += tightLevelByteSize(format, w, h);
+  }
+  return total;
+}
+
 /* ------------------------------------------------------------ colour quant */
 
 const expand5 = (v: number) => (v << 3) | (v >> 2);
@@ -414,6 +434,8 @@ export interface DdsInfo {
   format: DdsPixelFormat;
   hasAlpha: boolean;
   dataBytes: number;
+  /** True when levels below 4x4 are tightly packed (CodeWalker-exported files); see {@link tightLevelByteSize}. */
+  tightTail: boolean;
 }
 
 export interface DdsValidation {
@@ -489,9 +511,15 @@ export function validateDds(bytes: Uint8Array): DdsValidation {
     return fail();
   }
   const expected = expectedDdsSize(format, width, height, mips);
+  let tightTail = false;
   if (bytes.length !== expected) {
-    errors.push(`File size ${bytes.length} does not match the ${expected} bytes expected for ${format} ${width}x${height} with ${mips} mip level(s).`);
-    return fail();
+    if (mips > 1 && format !== 'BGRA8' && bytes.length === expectedDdsSizeTight(format, width, height, mips)) {
+      tightTail = true;
+      warnings.push('Mip levels below 4x4 are tightly packed rather than padded to a block (this is how CodeWalker\'s exporter writes DDS files). The file is accepted; the sub-4x4 tail is never visible in practice.');
+    } else {
+      errors.push(`File size ${bytes.length} does not match the ${expected} bytes expected for ${format} ${width}x${height} with ${mips} mip level(s).`);
+      return fail();
+    }
   }
   const pow2 = (n: number) => (n & (n - 1)) === 0;
   if (!pow2(width) || !pow2(height)) warnings.push(`Dimensions ${width}x${height} are not powers of two.`);
@@ -502,7 +530,7 @@ export function validateDds(bytes: Uint8Array): DdsValidation {
     valid: true,
     errors,
     warnings,
-    info: { width, height, mipLevels: mips, format, hasAlpha, dataBytes: bytes.length - 4 - HEADER_SIZE },
+    info: { width, height, mipLevels: mips, format, hasAlpha, dataBytes: bytes.length - 4 - HEADER_SIZE, tightTail },
   };
 }
 
@@ -550,6 +578,8 @@ export function decodeDds(bytes: Uint8Array): { info: DdsInfo; levels: RgbaImage
   let off = 4 + HEADER_SIZE;
   for (let l = 0; l < info.mipLevels; l++) {
     const { w, h } = mipDimensions(info.width, info.height, l);
+    // tight-tail files: levels below one block are packed differently; they are not decoded
+    if (info.tightTail && (w < 4 || h < 4)) break;
     const img = createImage(w, h);
     if (info.format === 'BGRA8') {
       for (let i = 0; i < w * h; i++) {
