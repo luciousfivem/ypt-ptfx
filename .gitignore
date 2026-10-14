@@ -1,7 +1,9 @@
 node_modules/
 dist/
 target/
-bin/
+# build outputs only: a bare `bin/` would also hide source folders such as native/vfxforge-native/src/bin
+/tools/ypt-bridge/bin/
+/apps/desktop/src-tauri/bin/
 obj/
 .vite/
 coverage/
