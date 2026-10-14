@@ -1,9 +1,12 @@
 #!/bin/bash
 # Manual smoke test of the REAL desktop app (release build, embedded frontend, production CSP) on Linux.
 #
-# It launches the app under a virtual X display, clicks "Purple Flames", opens Export and presses
-# "Build export", then saves screenshots. With the converter bridge configured, the last screenshot must
-# show "Export complete ... CodeWalker ... loaded the binary YPT (RSC7 ...)".
+# Scenarios (SCENARIO=...):
+#   preset (default)  clicks "Purple Flames", opens Export and presses "Build export", then saves screenshots.
+#                     With the converter bridge configured, the last screenshot must show "Export complete ...
+#                     CodeWalker ... loaded the binary YPT (RSC7 ...)".
+#   video             presses Import, types the path of VIDEO=/path/to/clip.mp4 into the native file dialog and
+#                     screenshots the result: FFmpeg extraction -> keyed 4x4 atlas in the Sprite Editor.
 #
 #   pnpm --filter @vfxforge/desktop exec tauri build --no-bundle
 #   VFXFORGE_BRIDGE_DLL=/path/to/vfxforge-ypt-bridge.dll \
@@ -23,7 +26,15 @@ fi
 APP=$!
 trap 'kill $APP 2>/dev/null || true; rm -rf "$HOME_DIR"' EXIT
 sleep 14;                                  import -window root "$OUT/01-start.png"
-xdotool mousemove 85 300 click 1;  sleep 12; import -window root "$OUT/02-preset.png"      # Purple Flames
-xdotool mousemove 1457 21 click 1; sleep 4;  import -window root "$OUT/03-export.png"      # Export
-xdotool mousemove 445 641 click 1; sleep 30; import -window root "$OUT/04-result.png"      # Build export
+if [ "${SCENARIO:-preset}" = "video" ]; then
+  : "${VIDEO:?set VIDEO=/absolute/path/to/clip.mp4}"
+  xdotool mousemove 366 21 click 1;  sleep 4;  import -window root "$OUT/02-file-dialog.png"  # Import
+  xdotool key ctrl+l; sleep 1                                                                 # GTK: type a path
+  xdotool type --delay 40 "$VIDEO"; sleep 1; xdotool key Return
+  sleep 20;                                    import -window root "$OUT/03-imported.png"
+else
+  xdotool mousemove 85 300 click 1;  sleep 12; import -window root "$OUT/02-preset.png"      # Purple Flames
+  xdotool mousemove 1457 21 click 1; sleep 4;  import -window root "$OUT/03-export.png"      # Export
+  xdotool mousemove 445 641 click 1; sleep 30; import -window root "$OUT/04-result.png"      # Build export
+fi
 echo "screenshots in $OUT"
