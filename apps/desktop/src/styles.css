@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ design tokens */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0a0a0f;
+  --panel: #11111a;
+  --panel-2: #171722;
+  --raised: #1e1e2c;
+  --line: #2a2a3b;
+  --line-soft: #1f1f2d;
+  --fg: #e9e9f3;
+  --fg-muted: #a0a0b8;
+  --fg-dim: #6c6c85;
+  --accent: #8b5cf6;
+  --accent-soft: color-mix(in srgb, #8b5cf6 22%, transparent);
+  --accent-2: #38bdf8;
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --checker-a: #1a1a24;
+  --checker-b: #232331;
+  --glass: color-mix(in srgb, #11111a 78%, transparent);
+  --shadow: 0 10px 40px rgb(0 0 0 / 0.55);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eceef4;
+  --panel: #f8f9fc;
+  --panel-2: #f0f1f7;
+  --raised: #ffffff;
+  --line: #d4d6e2;
+  --line-soft: #e2e4ee;
+  --fg: #181a26;
+  --fg-muted: #565a72;
+  --fg-dim: #8a8ea6;
+  --accent: #7c3aed;
+  --accent-soft: color-mix(in srgb, #7c3aed 16%, transparent);
+  --accent-2: #0284c7;
+  --ok: #059669;
+  --warn: #b45309;
+  --danger: #dc2626;
+  --checker-a: #e4e6ef;
+  --checker-b: #f3f4f9;
+  --glass: color-mix(in srgb, #f8f9fc 82%, transparent);
+  --shadow: 0 10px 40px rgb(30 30 60 / 0.18);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel2: var(--panel-2);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-lines: var(--line-soft);
+  --color-fg: var(--fg);
+  --color-muted: var(--fg-muted);
+  --color-dim: var(--fg-dim);
+  --color-accent: var(--accent);
+  --color-accent2: var(--accent-2);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --font-sans: Inter, "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* ------------------------------------------------------------------------- base */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  line-height: 1.35;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+input,
+textarea,
+[contenteditable] {
+  user-select: text;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+::selection {
+  background: var(--accent-soft);
+}
+:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 1px;
+}
+
+/* Transparent media is shown on an animated-looking checkerboard. */
+.checker {
+  background-color: var(--checker-a);
+  background-image:
+    linear-gradient(45deg, var(--checker-b) 25%, transparent 25%, transparent 75%, var(--checker-b) 75%),
+    linear-gradient(45deg, var(--checker-b) 25%, transparent 25%, transparent 75%, var(--checker-b) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+}
+@keyframes checker-scroll {
+  to {
+    background-position: 16px 0, 24px 8px;
+  }
+}
+.checker-anim {
+  animation: checker-scroll 2.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .checker-anim {
+    animation: none;
+  }
+}
+
+/* Resizable panel separators */
+[data-separator] {
+  background: var(--line-soft);
+  transition: background 120ms;
+}
+[data-separator]:hover,
+[data-separator][data-separator="active"] {
+  background: var(--accent);
+}
+
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(14px) saturate(1.2);
+}

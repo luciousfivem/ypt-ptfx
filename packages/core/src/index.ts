@@ -7,3 +7,4 @@ export * from './history';
 export * from './project/schema';
 export * from './project/defaults';
 export * from './project/semantics';
+export * from './project/share';

@@ -6,3 +6,4 @@ export * from './pipeline';
 export * from './atlas';
 export * from './png';
 export * from './dds';
+export * from './sniff';
