@@ -20,12 +20,14 @@ import {
   constantCurve,
   evalCurve,
   evalGradient,
+  rotateEulerXYZ,
   toGtaSpace,
+  type AttachmentPoint,
   type Curve,
-  type Effect,
   type Emitter,
   type Project,
   type Sheet,
+  type TriggerEvent,
 } from '@vfxforge/core';
 import {
   EFFECT_KFP_SLOTS,
@@ -76,8 +78,32 @@ export interface BuildOptions {
   render?: Partial<{ shaderFile: string; shaderTechnique: string; diffuseVarName: string }>;
 }
 
+/**
+ * How the runtime script must start one exported effect rule. One native start call attaches ONE
+ * effect at ONE offset, so emitters that differ in attachment point / triggers / loop-ness are
+ * exported as separate effect rules, each with its own binding.
+ */
+export interface BindingPlan {
+  /** Effect rule name inside the YPT (what StartParticleFx… is called with). */
+  effectRule: string;
+  /** The VFXForge effect this binding came from. */
+  effectName: string;
+  attachmentId: string | null;
+  attachmentName: string | null;
+  /** Attachment offset in GTA weapon-local space (metres). */
+  offset: V3;
+  /** Attachment rotation, degrees, in GTA axes. */
+  rotation: V3;
+  scale: number;
+  bone: string | null;
+  triggers: TriggerEvent[];
+  loop: boolean;
+  emitterNames: string[];
+}
+
 export interface BuildResult {
   model: YptModel;
+  bindings: BindingPlan[];
   notes: MappingNote[];
   /** Hard problems that make the effect un-exportable (missing sheet, no emitters...). */
   errors: string[];
@@ -163,9 +189,27 @@ function textureFor(a: SheetAsset): TextureModel {
   };
 }
 
-/** Particle/emitter/effect rule names for emitter `i` of `effect`. All lowercase identifiers. */
-export function ruleNames(effect: Pick<Effect, 'ptfxName'>, i: number): { particle: string; emitter: string } {
-  return { particle: `${effect.ptfxName}_p${i + 1}`, emitter: `${effect.ptfxName}_e${i + 1}` };
+/** Particle/emitter rule names for emitter `i` of the effect rule `effectRule`. */
+export function ruleNames(effectRule: string, i: number): { particle: string; emitter: string } {
+  return { particle: `${effectRule}_p${i + 1}`, emitter: `${effectRule}_e${i + 1}` };
+}
+
+/** Key that decides which emitters can share one effect rule (one start call). */
+function groupKey(em: Emitter): string {
+  return `${em.attachmentId ?? ''}|${[...em.triggers].sort().join(',')}|${em.emission.mode === 'oneShot' || !em.emission.loop ? 'once' : 'loop'}`;
+}
+
+/**
+ * GTA native rotation arguments are Euler degrees about world axes. Converting an arbitrary
+ * three-axis Euler between the two coordinate systems depends on the engine's rotation order,
+ * which is unverified; a rotation about ONE axis is exact in every order, so only that case is
+ * claimed exact.
+ */
+export function rotationToGta(eulerDeg: V3): { rotation: V3; exact: boolean } {
+  const nonZero = eulerDeg.filter((a) => Math.abs(a) > 1e-6).length;
+  // axes map: x->x, y(up)->z, z(back)->-y ; a rotation of +a about three's Y is +a about GTA's Z, etc.
+  const rotation: V3 = [eulerDeg[0], -eulerDeg[2], eulerDeg[1]];
+  return { rotation, exact: nonZero <= 1 };
 }
 
 export function buildYptModel(project: Project, sheets: Record<string, SheetAsset>, opts: BuildOptions = {}): BuildResult {
@@ -181,56 +225,100 @@ export function buildYptModel(project: Project, sheets: Record<string, SheetAsse
   };
   const usedSheets = new Map<string, SheetAsset>();
 
+  const bindings: BindingPlan[] = [];
+  const attachments = new Map<string, AttachmentPoint>(project.weapon.attachments.map((a) => [a.id, a]));
+
   for (const effect of Object.values(project.effects)) {
     const active = effect.emitters.filter((e) => e.enabled);
     if (active.length === 0) {
       errors.push(`Effect "${effect.name}" has no enabled emitters.`);
       continue;
     }
-    const eventEmitters: EffectRuleModel['eventEmitters'] = [];
-    let effectDuration = 0;
-    active.forEach((em, i) => {
-      const names = ruleNames(effect, i);
-      const note = (property: string, status: MappingStatus, confidence: MappingConfidence, detail: string) =>
-        notes.push({ effect: effect.name, emitter: em.name, property, status, confidence, detail });
+    const groups = new Map<string, Emitter[]>();
+    for (const em of active) {
+      const k = groupKey(em);
+      groups.set(k, [...(groups.get(k) ?? []), em]);
+    }
+    let groupIndex = 0;
+    for (const members of groups.values()) {
+      const effectRule = groupIndex === 0 ? effect.ptfxName : `${effect.ptfxName}_${groupIndex + 1}`;
+      groupIndex++;
+      const eventEmitters: EffectRuleModel['eventEmitters'] = [];
+      const used: Emitter[] = [];
+      let effectDuration = 0;
+      members.forEach((em, i) => {
+        const names = ruleNames(effectRule, i);
+        const note = (property: string, status: MappingStatus, confidence: MappingConfidence, detail: string) =>
+          notes.push({ effect: effect.name, emitter: em.name, property, status, confidence, detail });
 
-      if (em.sheetId === null) {
-        errors.push(`Emitter "${em.name}" (effect "${effect.name}") has no spritesheet assigned.`);
-        return;
-      }
-      const asset = sheets[em.sheetId];
-      if (!asset) {
-        errors.push(`Emitter "${em.name}" references a spritesheet that has not been generated.`);
-        return;
-      }
-      usedSheets.set(asset.sheet.textureName, asset);
-
-      const { particle, emitter, rangeEnd } = buildEmitterRules(em, asset, names, render, note);
-      model.particles.push(particle);
-      model.emitters.push(emitter);
-      effectDuration = Math.max(effectDuration, em.emission.startDelay + em.emission.duration, rangeEnd);
-      eventEmitters.push({
-        emitterRule: names.emitter,
-        particleRule: names.particle,
-        eventType: 0,
-        startRatio: 0,
-        endRatio: 1,
-        playbackRateScalarMin: 1,
-        playbackRateScalarMax: 1,
-        zoomScalarMin: 1,
-        zoomScalarMax: 1,
-        colourTintMin: 0xffffffff,
-        colourTintMax: 0xffffffff,
+        if (em.sheetId === null) {
+          errors.push(`Emitter "${em.name}" (effect "${effect.name}") has no spritesheet assigned.`);
+          return;
+        }
+        const asset = sheets[em.sheetId];
+        if (!asset) {
+          errors.push(`Emitter "${em.name}" references a spritesheet that has not been generated.`);
+          return;
+        }
+        usedSheets.set(asset.sheet.textureName, asset);
+        const { particle, emitter, rangeEnd } = buildEmitterRules(em, asset, names, render, note);
+        model.particles.push(particle);
+        model.emitters.push(emitter);
+        used.push(em);
+        effectDuration = Math.max(effectDuration, em.emission.startDelay + em.emission.duration, rangeEnd);
+        eventEmitters.push({
+          emitterRule: names.emitter,
+          particleRule: names.particle,
+          eventType: 0,
+          startRatio: 0,
+          endRatio: 1,
+          playbackRateScalarMin: 1,
+          playbackRateScalarMax: 1,
+          zoomScalarMin: 1,
+          zoomScalarMax: 1,
+          colourTintMin: 0xffffffff,
+          colourTintMax: 0xffffffff,
+        });
       });
-    });
-    if (eventEmitters.length === 0) continue;
-    model.effects.push(buildEffectRule(effect, active, eventEmitters, effectDuration));
+      if (eventEmitters.length === 0) continue;
+      model.effects.push(buildEffectRule(effectRule, used, eventEmitters, effectDuration));
+
+      const first = used[0]!;
+      const att = first.attachmentId ? attachments.get(first.attachmentId) : undefined;
+      const rot = rotationToGta((att?.rotation ?? [0, 0, 0]) as V3);
+      if (!rot.exact) {
+        notes.push({
+          effect: effect.name,
+          emitter: used.map((u) => u.name).join(', '),
+          property: 'attachment.rotation',
+          status: 'approximated',
+          confidence: 'unverified',
+          detail: `Attachment "${att?.name}" rotates about more than one axis; the conversion to GTA Euler angles assumes XYZ order, which is unverified. Rotating about a single axis is exact.`,
+        });
+      }
+      if (!att) {
+        notes.push({ effect: effect.name, emitter: used.map((u) => u.name).join(', '), property: 'attachment', status: 'mapped', confidence: 'verified', detail: 'No attachment point: the effect attaches to the weapon entity origin with no offset.' });
+      }
+      bindings.push({
+        effectRule,
+        effectName: effect.name,
+        attachmentId: att?.id ?? null,
+        attachmentName: att?.name ?? null,
+        offset: att ? toGtaSpace(att.position as V3) : [0, 0, 0],
+        rotation: rot.rotation,
+        scale: 1,
+        bone: att?.gtaBone ?? null,
+        triggers: [...new Set(used.flatMap((u) => u.triggers))].sort() as TriggerEvent[],
+        loop: first.emission.mode !== 'oneShot' && first.emission.loop,
+        emitterNames: used.map((u) => u.name),
+      });
+    }
   }
   model.textures = [...usedSheets.values()].map(textureFor);
-  return { model, notes, errors };
+  return { model, bindings, notes, errors };
 }
 
-function buildEffectRule(effect: Effect, emitters: Emitter[], eventEmitters: EffectRuleModel['eventEmitters'], duration: number): EffectRuleModel {
+function buildEffectRule(ruleName: string, emitters: Emitter[], eventEmitters: EffectRuleModel['eventEmitters'], duration: number): EffectRuleModel {
   const looping = emitters.some((e) => e.emission.loop && e.emission.mode !== 'oneShot');
   // Event start/end ratios are fractions of the effect duration; per-emitter start delays are expressed through them.
   eventEmitters.forEach((ev, i) => {
@@ -240,7 +328,7 @@ function buildEffectRule(effect: Effect, emitters: Emitter[], eventEmitters: Eff
   });
   const white: V4 = [1, 1, 1, 1];
   return {
-    name: effect.ptfxName,
+    name: ruleName,
     refCount: 0,
     fileVersion: ENGINE_DEFAULTS.effectFileVersion,
     numLoops: looping ? 0 : 1,
@@ -337,12 +425,17 @@ function buildEmitterRules(
   /* ----- size over life ----- */
   const sizeTimes = sampleTimes(em.particle.sizeOverLife);
   const aspect = em.particle.aspect;
+  const tf = em.transform;
+  const uniformScale = (tf.scale[0] + tf.scale[1] + tf.scale[2]) / 3;
+  if (Math.max(...tf.scale) - Math.min(...tf.scale) > 1e-6) {
+    note('transform.scale', 'approximated', 'verified', 'Non-uniform emitter scale is averaged to a uniform scale (sprites cannot be stretched per-axis).');
+  }
   behaviours.push({
     type: 'Size',
     keyframeMode: 0,
     isProportional: aspect === 1 ? 1 : 0,
-    whdMin: kfp(KFP.sizeWhdMin, sizeTimes.map((t) => [t, sizeVec(em.particle.size.min, em.particle.sizeOverLife, t, aspect)] as [number, V4])),
-    whdMax: kfp(KFP.sizeWhdMax, sizeTimes.map((t) => [t, sizeVec(em.particle.size.max, em.particle.sizeOverLife, t, aspect)] as [number, V4])),
+    whdMin: kfp(KFP.sizeWhdMin, sizeTimes.map((t) => [t, sizeVec(em.particle.size.min * uniformScale, em.particle.sizeOverLife, t, aspect)] as [number, V4])),
+    whdMax: kfp(KFP.sizeWhdMax, sizeTimes.map((t) => [t, sizeVec(em.particle.size.max * uniformScale, em.particle.sizeOverLife, t, aspect)] as [number, V4])),
     tblrScalar: constKfp(KFP.sizeTblrScalar, [1, 1, 1, 1]),
     tblrVelScalar: constKfp(KFP.sizeTblrVelScalar, [0, 0, 0, 0]),
   });
@@ -488,7 +581,8 @@ function buildEmitterRules(
 
   /* ----- emitter rule ----- */
   const shape = em.shape;
-  const sizeV: V3 = toGtaSpace([shape.size[0] / 2, shape.size[1] / 2, shape.size[2] / 2]).map(Math.abs) as V3;
+  const k = uniformScale;
+  const sizeV: V3 = toGtaSpace([(shape.size[0] / 2) * k, (shape.size[1] / 2) * k, (shape.size[2] / 2) * k]).map(Math.abs) as V3;
   let creationType: DomainModel['type'] = 'Box';
   let outer: V3 = sizeV;
   switch (shape.type) {
@@ -500,23 +594,26 @@ function buildEmitterRules(
       break;
     case 'sphere':
       creationType = 'Sphere';
-      outer = [shape.radius, shape.radius, shape.radius];
+      outer = [shape.radius * k, shape.radius * k, shape.radius * k];
       break;
     case 'circle':
       creationType = 'Cylinder';
-      outer = [shape.radius, shape.radius, 0];
+      outer = [shape.radius * k, shape.radius * k, 0];
       break;
     case 'cone':
       creationType = 'Cylinder';
-      outer = [shape.radius, shape.radius, 0];
+      outer = [shape.radius * k, shape.radius * k, 0];
       note('shape.cone', 'approximated', 'inferred', 'GTA has no cone domain: the cone is emitted from a disc and its half-angle is approximated by the target domain spread.');
       break;
   }
   const inner: V3 = shape.fromShell ? outer : [0, 0, 0];
-  const creation = makeDomain('creation', creationType, [0, 0, 0], [0, 0, 0], outer, inner);
+  const emitterRot = rotationToGta(tf.rotation as V3);
+  const creation = makeDomain('creation', creationType, toGtaSpace(tf.position as V3), emitterRot.rotation.map((d) => d * DEG2RAD) as V3, outer, inner);
+  note('transform', 'mapped', 'inferred', 'Emitter position/rotation/scale are baked into the creation domain (position, rotation in radians, size); the attachment offset is applied at runtime.');
+  if (!emitterRot.exact) note('transform.rotation', 'approximated', 'unverified', 'Multi-axis emitter rotation assumes XYZ Euler order when converted to GTA axes.');
 
-  // Target domain: a point in the emission direction; its size encodes the spread.
-  const dir = toGtaSpace(em.physics.direction);
+  // Target domain: a point in the emission direction (rotated by the emitter rotation); its size encodes the spread.
+  const dir = toGtaSpace(rotateEulerXYZ(em.physics.direction as V3, tf.rotation as V3));
   const spreadRad = Math.tan(Math.min(89, em.physics.spread) * DEG2RAD);
   const target = makeDomain('target', 'Sphere', dir, [0, 0, 0], [spreadRad, spreadRad, spreadRad], [0, 0, 0]);
   const attractor = makeDomain('attractor', 'Sphere', [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]);
@@ -553,7 +650,7 @@ function buildEmitterRules(
   note('physics.speed', 'mapped', 'unverified', 'Speed min/max → m_speedScalarKFP (x = min, y = max); the vector-component layout is inferred.');
   note('particle.lifetime', 'mapped', 'inferred', 'Lifetime min/max → m_particleLifeKFP (x = min, y = max).');
   if (em.physics.speedOverLife.keys.length > 1) note('physics.speedOverLife', 'unsupported', 'verified', 'Speed-over-life curves are not exported.');
-  note('transform / attachment', 'preview-only', 'verified', 'Placement on the weapon is applied at runtime by the generated Lua (offset/rotation in config.lua), not stored in the YPT.');
+  note('attachment', 'preview-only', 'verified', 'The attachment point offset/rotation is applied at runtime by the generated Lua (config.lua), not stored in the YPT.');
 
   const emitter: EmitterRuleModel = {
     name: names.emitter,
