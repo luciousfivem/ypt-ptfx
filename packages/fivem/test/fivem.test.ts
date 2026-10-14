@@ -238,7 +238,8 @@ describe.skipIf(!hasLua)('generated Lua (lua 5.4)', () => {
     }
   });
 
-  const list = spawnSync(LUA, [HARNESS, dir, '--list'], { encoding: 'utf8' }).stdout.trim().split('\n').filter(Boolean);
+  // vitest still runs this callback when the suite is skipped, so never shell out to a Lua that is not installed
+  const list = hasLua ? spawnSync(LUA, [HARNESS, dir, '--list'], { encoding: 'utf8' }).stdout.trim().split('\n').filter(Boolean) : [];
   it('the harness exposes its scenarios', () => {
     expect(list.length).toBeGreaterThanOrEqual(20);
   });
